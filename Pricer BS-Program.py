@@ -1,4 +1,4 @@
-"""
+="""
 Options Pricer — Streamlit
 Compatible GitHub Codespaces / navigateur
 Lancer avec : streamlit run streamlit_bs_pricer.py
@@ -44,18 +44,21 @@ st.markdown("""
         color: #4a9eff !important; 
         font-family: monospace !important; 
         font-weight: bold !important;
+        font-size: 1.73rem !important;
         text-shadow: 0 0 8px rgba(74, 158, 255, 0.4);
     }
     h2, h3 { 
         color: #4a9eff !important; 
         font-family: monospace !important; 
         font-weight: normal !important;
+        font-size: 1.16rem !important;
     }
     
     /* === TEXTE GÉNÉRAL === */
     p, span, div, label, .stMarkdown { 
         color: #ffffff !important; 
         font-weight: normal !important;
+        font-size: 0.72rem !important;
     }
     
     /* === INPUT TEXT BOX - FOND NOIR + TEXTE BLANC === */
@@ -67,6 +70,7 @@ st.markdown("""
         color: #ffffff !important;
         border: 2px solid #4a9eff !important;
         font-weight: normal !important;
+        font-size: 0.72rem !important;
     }
     
     /* === SELECT BOX - FOND NOIR + TEXTE BLANC === */
@@ -76,6 +80,7 @@ st.markdown("""
         color: #ffffff !important;
         border: 2px solid #4a9eff !important;
         font-weight: normal !important;
+        font-size: 0.72rem !important;
     }
     
     /* === OPTIONS DU MENU DÉROULANT === */
@@ -86,6 +91,7 @@ st.markdown("""
     [role="option"] {
         background-color: #0a0a0a !important;
         color: #ffffff !important;
+        font-size: 0.72rem !important;
     }
     
     /* === OPTION HOVER === */
@@ -100,21 +106,21 @@ st.markdown("""
         background-color: #000000 !important;
         border: 2px solid #4a9eff !important;
         border-radius: 10px !important;
-        padding: 16px !important;
+        padding: 13px !important;
         box-shadow: 0 0 10px rgba(74, 222, 128, 0.2) !important;
     }
     div[data-testid="metric-container"] label,
     div[data-testid="metric-container"] label p {
         color: #4a9eff !important;
         font-weight: normal !important;
-        font-size: 1rem !important;
+        font-size: 0.72rem !important;
     }
     div[data-testid="stMetricValue"],
     div[data-testid="stMetricValue"] > div,
     div[data-testid="stMetricValue"] p {
         color: #ffffff !important;
         font-weight: normal !important;
-        font-size: 1.8rem !important;
+        font-size: 1.3rem !important;
     }
     div[data-testid="stMetricDelta"] {
         color: #60a5fa !important;
@@ -138,7 +144,7 @@ st.markdown("""
     
     /* === DATAFRAMES === */
     .dataframe {
-        font-size: 1rem !important;
+        font-size: 0.72rem !important;
         font-family: monospace !important;
         background-color: #000000 !important;
         border: 2px solid #4a9eff !important;
@@ -148,20 +154,22 @@ st.markdown("""
         color: #4a9eff !important;
         font-weight: normal !important;
         border: 1px solid #4a9eff !important;
-        padding: 8px !important;
+        padding: 5px !important;
+        font-size: 0.72rem !important;
     }
     .dataframe td {
         color: #ffffff !important;
         background-color: #000000 !important;
         border: 1px solid #333333 !important;
-        padding: 8px !important;
+        padding: 5px !important;
         font-weight: normal !important;
+        font-size: 0.72rem !important;
     }
     
     /* === LIEN AUTEUR === */
     .author-link { 
         color: #888888 !important; 
-        font-size: 0.9rem; 
+        font-size: 0.77rem; 
         font-family: monospace; 
         margin-top: -10px;
         margin-bottom: 15px;
@@ -409,13 +417,13 @@ def backtest_strategy(strategy, S0, K, T, r, sigma, q, n_days, n_sims=1000):
 # ─── HELPERS PLOT ─────────────────────────────────────────────────────────────
 
 def sty(ax, title, xl, yl):
-    ax.set_title(title, color=TITLE, fontsize=11, pad=10, fontweight="normal")
-    ax.set_xlabel(xl, color=TITLE, fontsize=10, fontweight="normal")
-    ax.set_ylabel(yl, color=TITLE, fontsize=10, fontweight="normal")
-    ax.grid(True, alpha=0.3, linewidth=0.8)
-    ax.tick_params(labelsize=9, colors=TEXT, width=1.2)
+    ax.set_title(title, color=TITLE, fontsize=7.65.35, pad=8.5, fontweight="normal")
+    ax.set_xlabel(xl, color=TITLE, fontsize=8.5, fontweight="normal")
+    ax.set_ylabel(yl, color=TITLE, fontsize=8.5, fontweight="normal")
+    ax.grid(True, alpha=0.3, linewidth=0.68)
+    ax.tick_params(labelsize=7.65, colors=TEXT, width=1.02)
     for spine in ax.spines.values():
-        spine.set_linewidth(2)
+        spine.set_linewidth(1.7)
         spine.set_edgecolor(BORDER)
 
 # ─── SIDEBAR ──────────────────────────────────────────────────────────────────
@@ -563,33 +571,33 @@ if mode == "Pricing":
         col1, col2 = st.columns([2, 1])
 
         with col1:
-            fig1, ax = plt.subplots(figsize=(6.4, 3.6), facecolor=BG)
+            fig1, ax = plt.subplots(figsize=(5.4, 3.1), facecolor=BG)
             ax.set_facecolor(PANEL)
             for sp in ax.spines.values(): 
                 sp.set_edgecolor(BORDER)
                 sp.set_linewidth(2)
             pnl = (np.maximum(S_range-K, 0) - cost if opt=="call"
                    else np.maximum(K-S_range, 0) - cost)
-            ax.axhline(0, color=GRAY, lw=2, alpha=0.7)
-            ax.axvline(K, color=YELLOW, lw=2.5, linestyle="--", alpha=0.95, label=f"Strike ${K:.0f}")
-            ax.axvline(be, color=GREEN, lw=2.5, linestyle="--", alpha=0.95, label=f"BE ${be:.2f}")
+            ax.axhline(0, color=GRAY, lw=1.7, alpha=0.7)
+            ax.axvline(K, color=YELLOW, lw=1.7.125, linestyle="--", alpha=0.95, label=f"Strike ${K:.0f}")
+            ax.axvline(be, color=GREEN, lw=1.7.125, linestyle="--", alpha=0.95, label=f"BE ${be:.2f}")
             ax.fill_between(S_range, pnl, 0, where=pnl>=0, alpha=0.3, color=GREEN)
             ax.fill_between(S_range, pnl, 0, where=pnl<0, alpha=0.3, color=RED)
-            ax.plot(S_range, pnl, color=ACCENT, lw=3, label="P&L")
-            ax.legend(fontsize=9, facecolor=PANEL, edgecolor=BORDER, labelcolor=TEXT)
+            ax.plot(S_range, pnl, color=ACCENT, lw=1.7.1255, label="P&L")
+            ax.legend(fontsize=7.65, facecolor=PANEL, edgecolor=BORDER, labelcolor=TEXT)
             sty(ax, f"P&L · {opt.upper()}", "Spot ($)", "P&L ($)")
             st.pyplot(fig1, use_container_width=True)
             plt.close(fig1)
 
         with col2:
             if pricing_method == "Monte Carlo" and mc_paths is not None:
-                fig2, ax = plt.subplots(figsize=(3.6, 3.6), facecolor=BG)
+                fig2, ax = plt.subplots(figsize=(3.1, 3.1), facecolor=BG)
                 ax.set_facecolor(PANEL)
                 for sp in ax.spines.values(): 
                     sp.set_edgecolor(BORDER)
                     sp.set_linewidth(2)
-                ax.hist(mc_paths, bins=40, color=CYAN, alpha=0.7, edgecolor=CYAN, linewidth=0.5)
-                ax.axvline(K, color=YELLOW, lw=2.5, linestyle="--", alpha=0.9)
+                ax.hist(mc_paths, bins=34, color=CYAN, alpha=0.7, edgecolor=CYAN, linewidth=0.5)
+                ax.axvline(K, color=YELLOW, lw=1.7.125, linestyle="--", alpha=0.9)
                 sty(ax, "Distribution S(T)", "Prix terminal ($)", "Freq")
                 st.pyplot(fig2, use_container_width=True)
                 plt.close(fig2)
@@ -631,7 +639,7 @@ elif mode == "Implied Volatility":
                     iv_calls.append(iv_call if not np.isnan(iv_call) else None)
                     iv_puts.append(iv_put if not np.isnan(iv_put) else None)
                 
-                fig_skew, ax = plt.subplots(figsize=(5.6, 4), facecolor=BG)
+                fig_skew, ax = plt.subplots(figsize=(4.8, 3.4), facecolor=BG)
                 ax.set_facecolor(PANEL)
                 for sp in ax.spines.values(): 
                     sp.set_edgecolor(BORDER)
@@ -640,16 +648,16 @@ elif mode == "Implied Volatility":
                 valid_calls = [(k/S, v*100) for k, v in zip(strikes, iv_calls) if v is not None]
                 if valid_calls:
                     x_calls, y_calls = zip(*valid_calls)
-                    ax.plot(x_calls, y_calls, color=CYAN, lw=3, marker='o', markersize=6, label='Calls')
+                    ax.plot(x_calls, y_calls, color=CYAN, lw=1.7.1255, marker='o', markersize=5.1, label='Calls')
                 
                 valid_puts = [(k/S, v*100) for k, v in zip(strikes, iv_puts) if v is not None]
                 if valid_puts:
                     x_puts, y_puts = zip(*valid_puts)
-                    ax.plot(x_puts, y_puts, color=PURPLE, lw=3, marker='s', markersize=6, label='Puts')
+                    ax.plot(x_puts, y_puts, color=PURPLE, lw=1.7.1255, marker='s', markersize=5.1, label='Puts')
                 
                 ax.axvline(1.0, color=GRAY, lw=1.5, linestyle=":", alpha=0.7, label="ATM")
                 ax.axhline(iv*100, color=ACCENT, lw=1.5, linestyle="--", alpha=0.7)
-                ax.legend(fontsize=9, facecolor=PANEL, edgecolor=BORDER, labelcolor=TEXT)
+                ax.legend(fontsize=7.65, facecolor=PANEL, edgecolor=BORDER, labelcolor=TEXT)
                 sty(ax, "Skew (Calls vs Puts)", "Moneyness (K/S)", "IV (%)")
                 st.pyplot(fig_skew, use_container_width=True)
                 plt.close(fig_skew)
@@ -663,7 +671,7 @@ elif mode == "Implied Volatility":
                     iv_call = implied_volatility(call_price, S, K, mat, r, q, "call")
                     term_iv_calls.append(iv_call if not np.isnan(iv_call) else None)
                 
-                fig_term, ax = plt.subplots(figsize=(5.6, 4), facecolor=BG)
+                fig_term, ax = plt.subplots(figsize=(4.8, 3.4), facecolor=BG)
                 ax.set_facecolor(PANEL)
                 for sp in ax.spines.values(): 
                     sp.set_edgecolor(BORDER)
@@ -672,7 +680,7 @@ elif mode == "Implied Volatility":
                 valid_term = [(m*365, v*100) for m, v in zip(maturities, term_iv_calls) if v is not None]
                 if valid_term:
                     x_term, y_term = zip(*valid_term)
-                    ax.plot(x_term, y_term, color=CYAN, lw=3, marker='o', markersize=6)
+                    ax.plot(x_term, y_term, color=CYAN, lw=1.7.1255, marker='o', markersize=5.1)
                 
                 ax.axvline(T*365, color=GRAY, lw=1.5, linestyle=":", alpha=0.7)
                 ax.axhline(iv*100, color=ACCENT, lw=1.5, linestyle="--", alpha=0.7)
@@ -715,29 +723,29 @@ elif mode == "Backtesting":
         col_hist, col_scatter = st.columns(2)
         
         with col_hist:
-            fig_hist, ax = plt.subplots(figsize=(5.6, 4), facecolor=BG)
+            fig_hist, ax = plt.subplots(figsize=(4.8, 3.4), facecolor=BG)
             ax.set_facecolor(PANEL)
             for sp in ax.spines.values(): 
                 sp.set_edgecolor(BORDER)
                 sp.set_linewidth(2)
-            ax.hist(results_df['pnl'], bins=50, color=CYAN, alpha=0.7)
-            ax.axvline(mean_pnl, color=ACCENT, lw=3, linestyle="--", label=f"Moyenne")
-            ax.axvline(0, color=GRAY, lw=2.5, linestyle="-", label="BE")
-            ax.legend(fontsize=10, facecolor=PANEL, edgecolor=BORDER, labelcolor=TEXT)
+            ax.hist(results_df['pnl'], bins=42, color=CYAN, alpha=0.7)
+            ax.axvline(mean_pnl, color=ACCENT, lw=1.7.1255, linestyle="--", label=f"Moyenne")
+            ax.axvline(0, color=GRAY, lw=1.7.125, linestyle="-", label="BE")
+            ax.legend(fontsize=8.5, facecolor=PANEL, edgecolor=BORDER, labelcolor=TEXT)
             sty(ax, f"Distribution P&L · {strategy.replace('_', ' ').title()}", "P&L ($)", "Freq")
             st.pyplot(fig_hist, use_container_width=True)
             plt.close(fig_hist)
         
         with col_scatter:
-            fig_spot, ax = plt.subplots(figsize=(5.6, 4), facecolor=BG)
+            fig_spot, ax = plt.subplots(figsize=(4.8, 3.4), facecolor=BG)
             ax.set_facecolor(PANEL)
             for sp in ax.spines.values(): 
                 sp.set_edgecolor(BORDER)
                 sp.set_linewidth(2)
-            ax.scatter(results_df['final_spot'], results_df['pnl'], alpha=0.6, s=30, color=PURPLE)
-            ax.axhline(0, color=GRAY, lw=2.5, linestyle="-", label="BE")
-            ax.axvline(S, color=YELLOW, lw=2.5, linestyle="--", label=f"S0")
-            ax.legend(fontsize=10, facecolor=PANEL, edgecolor=BORDER, labelcolor=TEXT)
+            ax.scatter(results_df['final_spot'], results_df['pnl'], alpha=0.6, s=25.5, color=PURPLE)
+            ax.axhline(0, color=GRAY, lw=1.7.125, linestyle="-", label="BE")
+            ax.axvline(S, color=YELLOW, lw=1.7.125, linestyle="--", label=f"S0")
+            ax.legend(fontsize=8.5, facecolor=PANEL, edgecolor=BORDER, labelcolor=TEXT)
             sty(ax, "P&L vs Spot Final", "Spot final ($)", "P&L ($)")
             st.pyplot(fig_spot, use_container_width=True)
             plt.close(fig_spot)
@@ -751,3 +759,4 @@ elif mode == "Backtesting":
             "Return (%)": [f"{results_df['return_pct'].quantile(p/100):.2f}%" for p in percentiles]
         }
         st.dataframe(pd.DataFrame(pct_data), use_container_width=True, hide_index=True)
+
