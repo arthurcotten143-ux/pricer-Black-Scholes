@@ -78,6 +78,23 @@ st.markdown("""
         font-weight: normal !important;
     }
     
+    /* === OPTIONS DU MENU DÉROULANT === */
+    .stSelectbox div[data-baseweb="select"] > div,
+    .stSelectbox ul,
+    .stSelectbox li,
+    [role="listbox"],
+    [role="option"] {
+        background-color: #0a0a0a !important;
+        color: #ffffff !important;
+    }
+    
+    /* === OPTION HOVER === */
+    .stSelectbox li:hover,
+    [role="option"]:hover {
+        background-color: #1a1a1a !important;
+        color: #00ff00 !important;
+    }
+    
     /* === MÉTRIQUES === */
     div[data-testid="metric-container"] {
         background-color: #000000 !important;
