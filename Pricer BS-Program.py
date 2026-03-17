@@ -1,5 +1,5 @@
 """
-Black-Scholes Pricer — Streamlit
+Options Pricer — Streamlit
 Compatible GitHub Codespaces / navigateur
 Lancer avec : streamlit run streamlit_bs_pricer.py
 """
@@ -14,7 +14,7 @@ warnings.filterwarnings("ignore")
 
 # ─── PAGE CONFIG ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="BS Pricer",
+    page_title="Options Pricer",
     page_icon="◈",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -46,6 +46,22 @@ st.markdown("""
     }
     .stMarkdown { color: #e5e7eb; }
     .stAlert { background-color: #1a1f2e; border: 1px solid #22c55e; }
+    .author-link { 
+        color: #9ca3af; 
+        font-size: 0.85rem; 
+        font-family: monospace; 
+        margin-top: -10px;
+        margin-bottom: 15px;
+    }
+    .author-link a {
+        color: #4ade80;
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+    .author-link a:hover {
+        color: #22c55e;
+        text-decoration: underline;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -119,6 +135,92 @@ def prob_itm(S, K, T, r, sigma, q=0.0, opt="call"):
     d2 = (np.log(S/K)+(r-q-0.5*sigma**2)*T)/(sigma*np.sqrt(T))
     return norm.cdf(d2) if opt=="call" else norm.cdf(-d2)
 
+# ─── MONTE CARLO ──────────────────────────────────────────────────────────────
+
+def monte_carlo_pricer(S, K, T, r, sigma, q=0.0, opt="call", n_sims=100000, n_steps=252, antithetic=True, seed=42):
+    """
+    Monte Carlo pour options européennes avec variance reduction
+    """
+    np.random.seed(seed)
+    dt = T / n_steps
+    n_paths = n_sims // 2 if antithetic else n_sims
+    
+    # Génération des chemins
+    Z = np.random.standard_normal((n_paths, n_steps))
+    
+    if antithetic:
+        Z = np.concatenate([Z, -Z], axis=0)
+    
+    # Simulation GBM
+    drift = (r - q - 0.5*sigma**2) * dt
+    diffusion = sigma * np.sqrt(dt)
+    
+    log_returns = drift + diffusion * Z
+    log_price_paths = np.log(S) + np.cumsum(log_returns, axis=1)
+    S_T = np.exp(log_price_paths[:, -1])
+    
+    # Payoff
+    if opt == "call":
+        payoffs = np.maximum(S_T - K, 0)
+    else:
+        payoffs = np.maximum(K - S_T, 0)
+    
+    # Prix actualisé
+    price = np.exp(-r*T) * np.mean(payoffs)
+    std_error = np.exp(-r*T) * np.std(payoffs) / np.sqrt(len(payoffs))
+    
+    # Greeks par différences finies
+    dS = S * 0.01
+    price_up = monte_carlo_price_only(S+dS, K, T, r, sigma, q, opt, n_sims//2, n_steps, antithetic, seed)
+    price_down = monte_carlo_price_only(S-dS, K, T, r, sigma, q, opt, n_sims//2, n_steps, antithetic, seed)
+    delta = (price_up - price_down) / (2*dS)
+    gamma = (price_up - 2*price + price_down) / (dS**2)
+    
+    dsigma = sigma * 0.01
+    price_vol_up = monte_carlo_price_only(S, K, T, r, sigma+dsigma, q, opt, n_sims//2, n_steps, antithetic, seed)
+    vega = (price_vol_up - price) / dsigma / 100
+    
+    dT = 1/365
+    if T > dT:
+        price_t_down = monte_carlo_price_only(S, K, T-dT, r, sigma, q, opt, n_sims//2, n_steps, antithetic, seed)
+        theta = (price_t_down - price) / dT / 365
+    else:
+        theta = 0.0
+    
+    dr = 0.001
+    price_r_up = monte_carlo_price_only(S, K, T, r+dr, sigma, q, opt, n_sims//2, n_steps, antithetic, seed)
+    rho = (price_r_up - price) / dr / 100
+    
+    return {
+        "price": price,
+        "std_error": std_error,
+        "delta": delta,
+        "gamma": gamma,
+        "vega": vega,
+        "theta": theta,
+        "rho": rho,
+        "paths": S_T[:min(1000, len(S_T))]  # Garder quelques paths pour viz
+    }
+
+def monte_carlo_price_only(S, K, T, r, sigma, q, opt, n_sims, n_steps, antithetic, seed):
+    """Version allégée pour calcul de Greeks"""
+    np.random.seed(seed)
+    dt = T / n_steps
+    n_paths = n_sims // 2 if antithetic else n_sims
+    Z = np.random.standard_normal((n_paths, n_steps))
+    if antithetic:
+        Z = np.concatenate([Z, -Z], axis=0)
+    drift = (r - q - 0.5*sigma**2) * dt
+    diffusion = sigma * np.sqrt(dt)
+    log_returns = drift + diffusion * Z
+    log_price_paths = np.log(S) + np.cumsum(log_returns, axis=1)
+    S_T = np.exp(log_price_paths[:, -1])
+    if opt == "call":
+        payoffs = np.maximum(S_T - K, 0)
+    else:
+        payoffs = np.maximum(K - S_T, 0)
+    return np.exp(-r*T) * np.mean(payoffs)
+
 # ─── HELPERS PLOT ─────────────────────────────────────────────────────────────
 
 def sty(ax, title, xl, yl):
@@ -133,7 +235,16 @@ def sty(ax, title, xl, yl):
 # ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.markdown("## ◈ BS PRICER")
+    st.markdown("## ◈ OPTIONS PRICER")
+    st.markdown("---")
+    st.markdown("### Méthode de pricing")
+    
+    pricing_method = st.selectbox(
+        "Modèle",
+        ["Black-Scholes", "Monte Carlo"],
+        help="Choisir la méthode de valorisation"
+    )
+    
     st.markdown("---")
     st.markdown("### Paramètres")
 
@@ -145,19 +256,71 @@ with st.sidebar:
     q     = st.number_input("Dividend yield q (%)",    value=0.0,   step=0.1) / 100
     prem  = st.number_input("Prime payée ($) [opt.]",  value=0.0,   step=0.01)
     opt   = st.radio("Type d'option", ["call", "put"], horizontal=True)
+    
+    # Paramètres Monte Carlo
+    if pricing_method == "Monte Carlo":
+        st.markdown("---")
+        st.markdown("### Paramètres Monte Carlo")
+        n_sims = st.selectbox(
+            "Nombre de simulations",
+            [10000, 50000, 100000, 250000, 500000],
+            index=2,
+            help="Plus de simulations = plus précis mais plus lent"
+        )
+        n_steps = st.selectbox(
+            "Nombre de pas de temps",
+            [50, 100, 252, 500],
+            index=2,
+            help="252 = nombre de jours de trading annuels"
+        )
+        antithetic = st.checkbox(
+            "Variables antithétiques",
+            value=True,
+            help="Réduction de variance (recommandé)"
+        )
+        seed = st.number_input(
+            "Seed aléatoire",
+            value=42,
+            step=1,
+            help="Pour reproductibilité"
+        )
 
     st.markdown("---")
     run = st.button("⚡ PRICER", use_container_width=True, type="primary")
 
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
 
-st.markdown("# ◈ Black-Scholes Pricer")
+st.markdown(f"# ◈ Options Pricer — {pricing_method}")
+st.markdown(
+    '<div class="author-link">by <a href="https://www.linkedin.com/in/arthurcotten/" target="_blank">Arthur Cotten</a> • '
+    '<a href="https://github.com/arthurcotten" target="_blank">@arthurcotten</a></div>',
+    unsafe_allow_html=True
+)
 st.markdown("---")
 
 if run or True:  # calcul automatique au chargement
     T = T_day / 365
-    price  = bs(S, K, T, r, sigma, q, opt)
-    g      = greeks(S, K, T, r, sigma, q, opt)
+    
+    # Calcul selon méthode choisie
+    if pricing_method == "Black-Scholes":
+        price  = bs(S, K, T, r, sigma, q, opt)
+        g      = greeks(S, K, T, r, sigma, q, opt)
+        std_error = None
+        mc_paths = None
+    else:  # Monte Carlo
+        with st.spinner('Calcul Monte Carlo en cours...'):
+            mc_result = monte_carlo_pricer(S, K, T, r, sigma, q, opt, n_sims, n_steps, antithetic, seed)
+            price = mc_result["price"]
+            std_error = mc_result["std_error"]
+            g = {
+                "delta": mc_result["delta"],
+                "gamma": mc_result["gamma"],
+                "vega": mc_result["vega"],
+                "theta": mc_result["theta"],
+                "rho": mc_result["rho"]
+            }
+            mc_paths = mc_result["paths"]
+    
     prob   = prob_itm(S, K, T, r, sigma, q, opt)
     cost   = prem if prem > 0 else price
     be     = (K + cost) if opt=="call" else (K - cost)
@@ -170,12 +333,15 @@ if run or True:  # calcul automatique au chargement
 
     # ── Métriques principales ─────────────────────────────────────────────────
     c1, c2, c3, c4, c5, c6 = st.columns(6)
-    c1.metric("Prix BS",       f"${price:.4f}")
-    c2.metric("Break-even",    f"${be:.2f}")
-    c3.metric("Prob ITM",      f"{prob*100:.1f}%")
-    c4.metric("Time Value",    f"${tv:.4f}")
-    c5.metric("Moneyness",     mon_lbl)
-    c6.metric("Intrinsèque",   f"${intrin:.4f}")
+    c1.metric("Prix", f"${price:.4f}")
+    if std_error is not None:
+        c2.metric("Std Error (MC)", f"${std_error:.4f}")
+    else:
+        c2.metric("Break-even", f"${be:.2f}")
+    c3.metric("Prob ITM", f"{prob*100:.1f}%")
+    c4.metric("Time Value", f"${tv:.4f}")
+    c5.metric("Moneyness", mon_lbl)
+    c6.metric("Intrinsèque", f"${intrin:.4f}")
 
     st.markdown("---")
 
@@ -205,8 +371,11 @@ if run or True:  # calcul automatique au chargement
     # ── Graphiques ────────────────────────────────────────────────────────────
     S_range = np.linspace(S*0.68, S*1.32, 350)
 
-    # Ligne 1 : P&L + Prix vs Vol + Prix vs Temps
-    col1, col2, col3 = st.columns([2, 1, 1])
+    # Ligne 1 : P&L + Prix vs Vol + Prix vs Temps (ou distribution MC)
+    if pricing_method == "Black-Scholes":
+        col1, col2, col3 = st.columns([2, 1, 1])
+    else:
+        col1, col2, col3 = st.columns([1.5, 1, 1])
 
     with col1:
         fig1, ax = plt.subplots(figsize=(7, 3.5), facecolor=BG)
@@ -223,30 +392,52 @@ if run or True:  # calcul automatique au chargement
         ax.fill_between(S_range, pnl, 0, where=pnl>=0, alpha=0.3, color=GREEN)
         ax.fill_between(S_range, pnl, 0, where=pnl<0,  alpha=0.3, color=RED)
         ax.plot(S_range, pnl, color=ACCENT, lw=2.5, label="P&L expiration")
-        ax.plot(S_range,
-                [bs(s,K,T,r,sigma,q,opt)-cost for s in S_range],
-                color=PURPLE, lw=2, linestyle="--", alpha=0.9, label="Valeur actuelle")
+        if pricing_method == "Black-Scholes":
+            ax.plot(S_range,
+                    [bs(s,K,T,r,sigma,q,opt)-cost for s in S_range],
+                    color=PURPLE, lw=2, linestyle="--", alpha=0.9, label="Valeur actuelle")
+        else:
+            # Approximation pour MC (trop long de recalculer pour chaque point)
+            ax.plot(S_range,
+                    [bs(s,K,T,r,sigma,q,opt)-cost for s in S_range],
+                    color=PURPLE, lw=2, linestyle=":", alpha=0.7, label="Valeur actuelle (BS)")
         ax.legend(fontsize=7.5, facecolor=PANEL, edgecolor=BORDER, labelcolor=TEXT, framealpha=0.95)
         sty(ax, f"P&L à expiration · {opt.upper()} · Prime ${cost:.4f}", "Spot ($)", "P&L ($)")
         st.pyplot(fig1, use_container_width=True)
         plt.close(fig1)
 
     with col2:
-        fig2, ax = plt.subplots(figsize=(3.5, 3.5), facecolor=BG)
-        ax.set_facecolor(PANEL)
-        for sp in ax.spines.values(): 
-            sp.set_edgecolor(BORDER)
-            sp.set_linewidth(1.5)
-        vol_r  = np.linspace(0.01, sigma*3.5, 250)
-        pr_vol = [bs(S,K,T,r,v,q,opt) for v in vol_r]
-        ax.plot(vol_r*100, pr_vol, color=YELLOW, lw=2.5)
-        ax.axvline(sigma*100, color=ACCENT, lw=2, linestyle="--", alpha=0.9)
-        ax.axhline(price,     color=ACCENT, lw=1.2, linestyle="--", alpha=0.7)
-        ax.scatter([sigma*100], [price], color=ACCENT, s=80, zorder=5, edgecolors='white', linewidths=1.5)
-        ax.fill_between(vol_r*100, pr_vol, alpha=0.2, color=YELLOW)
-        sty(ax, f"Prix vs Vol [${price:.4f}]", "Vol (%)", "Prix ($)")
-        st.pyplot(fig2, use_container_width=True)
-        plt.close(fig2)
+        if pricing_method == "Monte Carlo" and mc_paths is not None:
+            # Distribution des prix terminaux
+            fig2, ax = plt.subplots(figsize=(3.5, 3.5), facecolor=BG)
+            ax.set_facecolor(PANEL)
+            for sp in ax.spines.values(): 
+                sp.set_edgecolor(BORDER)
+                sp.set_linewidth(1.5)
+            ax.hist(mc_paths, bins=50, color=CYAN, alpha=0.7, edgecolor=CYAN, linewidth=0.5)
+            ax.axvline(K, color=YELLOW, lw=2, linestyle="--", alpha=0.9, label=f"Strike ${K:.0f}")
+            ax.axvline(np.mean(mc_paths), color=ACCENT, lw=2, linestyle="-", alpha=0.9, label=f"Moyenne ${np.mean(mc_paths):.2f}")
+            ax.legend(fontsize=7, facecolor=PANEL, edgecolor=BORDER, labelcolor=TEXT, framealpha=0.95)
+            sty(ax, f"Distribution S(T) · {n_sims:,} sims", "Prix terminal ($)", "Fréquence")
+            st.pyplot(fig2, use_container_width=True)
+            plt.close(fig2)
+        else:
+            # Prix vs Vol (BS)
+            fig2, ax = plt.subplots(figsize=(3.5, 3.5), facecolor=BG)
+            ax.set_facecolor(PANEL)
+            for sp in ax.spines.values(): 
+                sp.set_edgecolor(BORDER)
+                sp.set_linewidth(1.5)
+            vol_r  = np.linspace(0.01, sigma*3.5, 250)
+            pr_vol = [bs(S,K,T,r,v,q,opt) for v in vol_r]
+            ax.plot(vol_r*100, pr_vol, color=YELLOW, lw=2.5)
+            ax.axvline(sigma*100, color=ACCENT, lw=2, linestyle="--", alpha=0.9)
+            ax.axhline(price,     color=ACCENT, lw=1.2, linestyle="--", alpha=0.7)
+            ax.scatter([sigma*100], [price], color=ACCENT, s=80, zorder=5, edgecolors='white', linewidths=1.5)
+            ax.fill_between(vol_r*100, pr_vol, alpha=0.2, color=YELLOW)
+            sty(ax, f"Prix vs Vol [${price:.4f}]", "Vol (%)", "Prix ($)")
+            st.pyplot(fig2, use_container_width=True)
+            plt.close(fig2)
 
     with col3:
         fig3, ax = plt.subplots(figsize=(3.5, 3.5), facecolor=BG)
