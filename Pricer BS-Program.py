@@ -41,13 +41,13 @@ st.markdown("""
     
     /* === TITRES (SEULEMENT H1 EN BOLD) === */
     h1 { 
-        color: #00ff00 !important; 
+        color: #4a9eff !important; 
         font-family: monospace !important; 
         font-weight: bold !important;
-        text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        text-shadow: 0 0 8px rgba(74, 158, 255, 0.4);
     }
     h2, h3 { 
-        color: #00ff00 !important; 
+        color: #4a9eff !important; 
         font-family: monospace !important; 
         font-weight: normal !important;
     }
@@ -65,7 +65,7 @@ st.markdown("""
     .stTextInput input {
         background-color: #0a0a0a !important;
         color: #ffffff !important;
-        border: 2px solid #00ff00 !important;
+        border: 2px solid #4a9eff !important;
         font-weight: normal !important;
     }
     
@@ -74,7 +74,7 @@ st.markdown("""
     select {
         background-color: #0a0a0a !important;
         color: #ffffff !important;
-        border: 2px solid #00ff00 !important;
+        border: 2px solid #4a9eff !important;
         font-weight: normal !important;
     }
     
@@ -92,20 +92,20 @@ st.markdown("""
     .stSelectbox li:hover,
     [role="option"]:hover {
         background-color: #1a1a1a !important;
-        color: #00ff00 !important;
+        color: #4a9eff !important;
     }
     
     /* === MÉTRIQUES === */
     div[data-testid="metric-container"] {
         background-color: #000000 !important;
-        border: 3px solid #00ff00 !important;
+        border: 2px solid #4a9eff !important;
         border-radius: 10px !important;
         padding: 16px !important;
-        box-shadow: 0 0 15px rgba(0, 255, 0, 0.3) !important;
+        box-shadow: 0 0 10px rgba(74, 222, 128, 0.2) !important;
     }
     div[data-testid="metric-container"] label,
     div[data-testid="metric-container"] label p {
-        color: #00ff00 !important;
+        color: #4a9eff !important;
         font-weight: normal !important;
         font-size: 1rem !important;
     }
@@ -117,7 +117,7 @@ st.markdown("""
         font-size: 1.8rem !important;
     }
     div[data-testid="stMetricDelta"] {
-        color: #00ff00 !important;
+        color: #60a5fa !important;
         font-weight: normal !important;
     }
     
@@ -126,7 +126,7 @@ st.markdown("""
     .stSuccess,
     .stWarning {
         background-color: #0a0a0a !important;
-        border: 2px solid #00ff00 !important;
+        border: 2px solid #4a9eff !important;
         color: #ffffff !important;
     }
     .stAlert p,
@@ -141,13 +141,13 @@ st.markdown("""
         font-size: 1rem !important;
         font-family: monospace !important;
         background-color: #000000 !important;
-        border: 2px solid #00ff00 !important;
+        border: 2px solid #4a9eff !important;
     }
     .dataframe th {
         background-color: #0a0a0a !important;
-        color: #00ff00 !important;
+        color: #4a9eff !important;
         font-weight: normal !important;
-        border: 1px solid #00ff00 !important;
+        border: 1px solid #4a9eff !important;
         padding: 8px !important;
     }
     .dataframe td {
@@ -168,14 +168,14 @@ st.markdown("""
         font-weight: normal !important;
     }
     .author-link a {
-        color: #00ff00 !important;
+        color: #4a9eff !important;
         text-decoration: none;
         font-weight: normal !important;
     }
     .author-link a:hover {
-        color: #00ff00 !important;
+        color: #60a5fa !important;
         text-decoration: underline;
-        text-shadow: 0 0 10px rgba(0, 255, 0, 0.8);
+        text-shadow: 0 0 5px rgba(74, 222, 128, 0.5);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -184,30 +184,30 @@ st.markdown("""
 plt.rcParams.update({
     "figure.facecolor": "#000000",
     "axes.facecolor":   "#0a0a0a",
-    "axes.edgecolor":   "#00ff00",
-    "axes.labelcolor":  "#00ff00",
-    "text.color":       "#ffffff",
-    "xtick.color":      "#ffffff",
-    "ytick.color":      "#ffffff",
-    "grid.color":       "#333333",
-    "grid.linewidth":   0.6,
+    "axes.edgecolor":   "#4a9eff",
+    "axes.labelcolor":  "#4a9eff",
+    "text.color":       "#e5e7eb",
+    "xtick.color":      "#e5e7eb",
+    "ytick.color":      "#e5e7eb",
+    "grid.color":       "#374151",
+    "grid.linewidth":   0.5,
     "font.family":      "monospace",
     "font.weight":      "normal",
 })
 
 BG     = "#000000"
 PANEL  = "#0a0a0a"
-BORDER = "#00ff00"
-ACCENT = "#00ff00"
-GREEN  = "#00ff00"
-RED    = "#ff0000"
-YELLOW = "#ffff00"
-PURPLE = "#ff00ff"
-CYAN   = "#00ffff"
-ORANGE = "#ff8800"
-GRAY   = "#888888"
-TEXT   = "#ffffff"
-TITLE  = "#00ff00"
+BORDER = "#4a9eff"
+ACCENT = "#4a9eff"
+GREEN  = "#10b981"
+RED    = "#ef4444"
+YELLOW = "#f59e0b"
+PURPLE = "#8b5cf6"
+CYAN   = "#06b6d4"
+ORANGE = "#f97316"
+GRAY   = "#6b7280"
+TEXT   = "#e5e7eb"
+TITLE  = "#4a9eff"
 
 # ─── BLACK-SCHOLES ────────────────────────────────────────────────────────────
 
@@ -563,7 +563,7 @@ if mode == "Pricing":
         col1, col2 = st.columns([2, 1])
 
         with col1:
-            fig1, ax = plt.subplots(figsize=(8, 4.5), facecolor=BG)
+            fig1, ax = plt.subplots(figsize=(6.4, 3.6), facecolor=BG)
             ax.set_facecolor(PANEL)
             for sp in ax.spines.values(): 
                 sp.set_edgecolor(BORDER)
@@ -583,7 +583,7 @@ if mode == "Pricing":
 
         with col2:
             if pricing_method == "Monte Carlo" and mc_paths is not None:
-                fig2, ax = plt.subplots(figsize=(4.5, 4.5), facecolor=BG)
+                fig2, ax = plt.subplots(figsize=(3.6, 3.6), facecolor=BG)
                 ax.set_facecolor(PANEL)
                 for sp in ax.spines.values(): 
                     sp.set_edgecolor(BORDER)
@@ -631,7 +631,7 @@ elif mode == "Implied Volatility":
                     iv_calls.append(iv_call if not np.isnan(iv_call) else None)
                     iv_puts.append(iv_put if not np.isnan(iv_put) else None)
                 
-                fig_skew, ax = plt.subplots(figsize=(7, 5), facecolor=BG)
+                fig_skew, ax = plt.subplots(figsize=(5.6, 4), facecolor=BG)
                 ax.set_facecolor(PANEL)
                 for sp in ax.spines.values(): 
                     sp.set_edgecolor(BORDER)
@@ -663,7 +663,7 @@ elif mode == "Implied Volatility":
                     iv_call = implied_volatility(call_price, S, K, mat, r, q, "call")
                     term_iv_calls.append(iv_call if not np.isnan(iv_call) else None)
                 
-                fig_term, ax = plt.subplots(figsize=(7, 5), facecolor=BG)
+                fig_term, ax = plt.subplots(figsize=(5.6, 4), facecolor=BG)
                 ax.set_facecolor(PANEL)
                 for sp in ax.spines.values(): 
                     sp.set_edgecolor(BORDER)
@@ -715,7 +715,7 @@ elif mode == "Backtesting":
         col_hist, col_scatter = st.columns(2)
         
         with col_hist:
-            fig_hist, ax = plt.subplots(figsize=(7, 5), facecolor=BG)
+            fig_hist, ax = plt.subplots(figsize=(5.6, 4), facecolor=BG)
             ax.set_facecolor(PANEL)
             for sp in ax.spines.values(): 
                 sp.set_edgecolor(BORDER)
@@ -729,7 +729,7 @@ elif mode == "Backtesting":
             plt.close(fig_hist)
         
         with col_scatter:
-            fig_spot, ax = plt.subplots(figsize=(7, 5), facecolor=BG)
+            fig_spot, ax = plt.subplots(figsize=(5.6, 4), facecolor=BG)
             ax.set_facecolor(PANEL)
             for sp in ax.spines.values(): 
                 sp.set_edgecolor(BORDER)
