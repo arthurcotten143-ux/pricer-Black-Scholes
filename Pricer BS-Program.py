@@ -25,14 +25,20 @@ st.markdown("""
     .main { background-color: #080b12; }
     .block-container { padding-top: 1rem; }
     [data-testid="stSidebar"] { background-color: #0f1219; }
-    h1, h2, h3 { color: #38bdf8; font-family: monospace; }
-    .metric-label { color: #5a6380 !important; font-size: 0.75rem !important; }
+    h1, h2, h3 { color: #ffffff; font-family: monospace; }
+    .metric-label { color: #ffffff !important; font-size: 0.75rem !important; }
     .stMetric { background-color: #131720; border-radius: 8px; padding: 8px; }
     div[data-testid="metric-container"] {
         background-color: #131720;
         border: 1px solid #1e2235;
         border-radius: 8px;
         padding: 10px;
+    }
+    div[data-testid="metric-container"] label {
+        color: #ffffff !important;
+    }
+    div[data-testid="stMetricValue"] {
+        color: #ffffff !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -42,10 +48,10 @@ plt.rcParams.update({
     "figure.facecolor": "#0f1219",
     "axes.facecolor":   "#131720",
     "axes.edgecolor":   "#1e2235",
-    "axes.labelcolor":  "#5a6380",
-    "text.color":       "#e8ecf8",
-    "xtick.color":      "#5a6380",
-    "ytick.color":      "#5a6380",
+    "axes.labelcolor":  "#ffffff",
+    "text.color":       "#ffffff",
+    "xtick.color":      "#ffffff",
+    "ytick.color":      "#ffffff",
     "grid.color":       "#1e2235",
     "grid.linewidth":   0.5,
     "font.family":      "monospace",
@@ -62,7 +68,7 @@ PURPLE = "#a78bfa"
 CYAN   = "#22d3ee"
 ORANGE = "#fb923c"
 GRAY   = "#5a6380"
-TEXT   = "#e8ecf8"
+TEXT   = "#ffffff"
 
 # ─── BLACK-SCHOLES ────────────────────────────────────────────────────────────
 
@@ -80,7 +86,7 @@ def bs(S, K, T, r, sigma, q=0.0, opt="call"):
 
 def greeks(S, K, T, r, sigma, q=0.0, opt="call"):
     if T <= 1e-10 or sigma <= 1e-10:
-        return {k: 0.0 for k in ["delta","gamma","vega","theta","rho","vanna","volga","charm"]}
+        return {k: 0.0 for k in ["delta","gamma","vega","theta","rho"]}
     d1 = (np.log(S/K) + (r-q+0.5*sigma**2)*T) / (sigma*np.sqrt(T))
     d2 = d1 - sigma*np.sqrt(T)
     nd1 = norm.pdf(d1)
@@ -98,11 +104,7 @@ def greeks(S, K, T, r, sigma, q=0.0, opt="call"):
         rho = -K*T*np.exp(-r*T)*norm.cdf(-d2) / 100
     gamma = np.exp(-q*T)*nd1 / (S*sigma*np.sqrt(T))
     vega  = S*np.exp(-q*T)*nd1*np.sqrt(T) / 100
-    vanna = -np.exp(-q*T)*nd1*d2 / sigma
-    volga = vega*d1*d2 / sigma
-    charm = np.exp(-q*T)*nd1*(2*(r-q)*T - d2*sigma*np.sqrt(T)) / (2*T*sigma*np.sqrt(T))
-    return {"delta":delta, "gamma":gamma, "vega":vega, "theta":theta,
-            "rho":rho, "vanna":vanna, "volga":volga, "charm":charm}
+    return {"delta":delta, "gamma":gamma, "vega":vega, "theta":theta, "rho":rho}
 
 def prob_itm(S, K, T, r, sigma, q=0.0, opt="call"):
     if T <= 1e-10 or sigma <= 1e-10:
@@ -114,10 +116,10 @@ def prob_itm(S, K, T, r, sigma, q=0.0, opt="call"):
 
 def sty(ax, title, xl, yl):
     ax.set_title(title, color=TEXT, fontsize=8.5, pad=6, fontweight="bold")
-    ax.set_xlabel(xl, color=GRAY, fontsize=7.5)
-    ax.set_ylabel(yl, color=GRAY, fontsize=7.5)
+    ax.set_xlabel(xl, color=TEXT, fontsize=7.5)
+    ax.set_ylabel(yl, color=TEXT, fontsize=7.5)
     ax.grid(True, alpha=0.3)
-    ax.tick_params(labelsize=7)
+    ax.tick_params(labelsize=7, colors=TEXT)
 
 # ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 
@@ -176,13 +178,6 @@ if run or True:  # calcul automatique au chargement
     gc3.metric("Vega ν",   f"{g['vega']:.5f}",   help="Sensibilité à la vol ($/+1%σ)")
     gc4.metric("Theta Θ",  f"{g['theta']:+.5f}", help="Perte de valeur par jour")
     gc5.metric("Rho ρ",    f"{g['rho']:+.5f}",   help="Sensibilité au taux")
-
-    # Greeks 2nd ordre
-    st.markdown("### Greeks — 2ème ordre")
-    gd1, gd2, gd3 = st.columns(3)
-    gd1.metric("Vanna",  f"{g['vanna']:.6f}", help="δΔ/δσ — sensibilité croisée spot/vol")
-    gd2.metric("Volga",  f"{g['volga']:.6f}", help="δVega/δσ — convexité vol")
-    gd3.metric("Charm",  f"{g['charm']:.6f}", help="δΔ/δt — variation du delta dans le temps")
 
     st.markdown("---")
 
@@ -267,15 +262,6 @@ if run or True:  # calcul automatique au chargement
         with col:
             fig_g, ax = plt.subplots(figsize=(3.5, 3), facecolor=PANEL)
             ax.set_facecolor(PANEL)
-            for sp in ax.spines.values(): sp.set_edgecolor(BORDER)
-            vals = [greeks(s,K,T,r,sigma,q,opt)[gname] for s in S_range]
-            ax.plot(S_range, vals, color=gcol, lw=2)
-            ax.axvline(S, color=GRAY, lw=1, linestyle=":", alpha=0.6)
-            ax.axhline(g[gname], color=gcol, lw=0.8, linestyle="--", alpha=0.5)
-            ax.fill_between(S_range, vals, alpha=0.13, color=gcol)
-            sty(ax, f"{gtitle} {gval}", "Spot ($)", gname.capitalize())
-            st.pyplot(fig_g, use_container_width=True)
-            plt.close(fig_g)
 
 
 
