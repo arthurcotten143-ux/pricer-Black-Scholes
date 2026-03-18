@@ -12,7 +12,7 @@ import streamlit as st
 import warnings
 warnings.filterwarnings("ignore")
 
-st.set_page_config(page_title="Options Pricer", page_icon="◈", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Derivatives & Risk Analytics", page_icon="◈", layout="wide", initial_sidebar_state="expanded")
 
 if "page" not in st.session_state:
     st.session_state.page = "app"
@@ -226,38 +226,45 @@ def legend_entry(color, label, linestyle="--"):
 
 def label_xaxis(ax, points):
     """
-    Add colored boxed labels below the x-axis, staggered on two rows to avoid overlap.
+    Draw a fixed info box in the top-left corner listing key levels.
     points = list of (x_value, label_str, color)
-    Even index = row 1 (closer), Odd index = row 2 (further down).
     """
-    row_offset = {0: -20, 1: -36}
+    vline_only = True  # vlines already drawn separately
+    box_text = "\n".join([f"{label}" for (_, label, _) in points])
+    # Build a multi-line colored text box using annotate with newlines
+    y_top = ax.get_ylim()[1]
+    x_left = ax.get_xlim()[0]
+    x_range = ax.get_xlim()[1] - ax.get_xlim()[0]
+    y_range = ax.get_ylim()[1] - ax.get_ylim()[0]
+
+    # One annotation per label, stacked vertically in top-right corner
+    x_pos = ax.get_xlim()[1] - x_range * 0.02
+    y_start = ax.get_ylim()[1] - y_range * 0.04
+    step = y_range * 0.12
+
     for i, (x_val, label, color) in enumerate(points):
-        y_offset = row_offset[i % 2]
         ax.annotate(
             label,
-            xy=(x_val, ax.get_ylim()[0]),
+            xy=(x_pos, y_start - i * step),
             xycoords="data",
-            xytext=(0, y_offset),
-            textcoords="offset points",
-            fontsize=6.0,
+            fontsize=6.2,
             color=color,
             fontfamily="monospace",
-            ha="center",
+            ha="right",
             va="top",
             bbox=dict(
-                boxstyle="round,pad=0.3",
+                boxstyle="round,pad=0.25",
                 facecolor="#000000",
                 edgecolor=color,
-                linewidth=0.8,
-                alpha=0.92,
+                linewidth=0.7,
+                alpha=0.9,
             ),
-            annotation_clip=False,
         )
 
 # ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.markdown("## ◈ OPTIONS PRICER")
+    st.markdown("## ◈ DERIVATIVES & RISK")
     st.markdown("---")
     if st.session_state.page == "app":
         if st.button("📐  Formula Reference", use_container_width=True):
@@ -412,9 +419,9 @@ if st.session_state.page == "docs":
 
 elif st.session_state.page == "app":
 
-    title_map = {"Pricing": f"Options Pricer — {pricing_method}",
+    title_map = {"Pricing": f"Derivatives Analytics — {pricing_method}",
                  "Implied Volatility": "Implied Volatility Calibrator",
-                 "Backtesting": "Strategy Backtester"}
+                 "Backtesting": "Strategy Backtester & Risk Analysis"}
     st.markdown(f"# {title_map[mode]}")
     st.markdown('<div class="author-link">by <a href="https://www.linkedin.com/in/arthurcotten/">Arthur Cotten</a> • <a href="https://github.com/arthurcotten">@arthurcotten</a></div>', unsafe_allow_html=True)
     st.markdown("---")
@@ -483,8 +490,8 @@ elif st.session_state.page == "app":
                 (be, f"BE={be:.2f}", GREEN),
                 (S,  f"S={S:.0f}",   "#9ca3af"),
             ])
-            sty(ax,f"P&L  ·  {opt.upper()}","","P&L ($)")
-            fig.subplots_adjust(bottom=0.28)
+            sty(ax,f"P&L  ·  {opt.upper()}","Spot ($)","P&L ($)")
+            fig.tight_layout(pad=1.2)
             st.pyplot(fig,use_container_width=True); plt.close(fig)
 
         with col2:
@@ -625,8 +632,8 @@ elif st.session_state.page == "app":
                 plt.Line2D([0],[0],marker='o',color='w',markerfacecolor=PURPLE,markersize=5,label='Loss',linewidth=0),
                 legend_entry(GRAY, "BE $0.00", linestyle="-"),
             ], fontsize=6.5, facecolor=PANEL, edgecolor="#2a4a6b", labelcolor=TEXT, framealpha=0.85, loc="upper left")
-            sty(ax,"P&L vs Final Spot","","P&L ($)")
-            fig_sc.subplots_adjust(bottom=0.28)
+            sty(ax,"P&L vs Final Spot","Final spot ($)","P&L ($)")
+            fig_sc.tight_layout(pad=1.2)
             st.pyplot(fig_sc,use_container_width=True); plt.close(fig_sc)
 
         st.markdown("---"); st.markdown("### Percentiles")
