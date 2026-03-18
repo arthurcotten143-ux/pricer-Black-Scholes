@@ -79,6 +79,17 @@ st.markdown("""
     .tag-purple { background:#1a0a2e; color:#8b5cf6; border:1px solid #8b5cf6; border-radius:4px; padding:2px 7px; font-size:0.68rem; font-family:monospace; }
     .tag-yellow { background:#1c1200; color:#f59e0b; border:1px solid #f59e0b; border-radius:4px; padding:2px 7px; font-size:0.68rem; font-family:monospace; }
     .section-divider { border: none; border-top: 1px solid #1e2a38; margin: 28px 0; }
+    /* Markdown tables */
+    table { border-collapse: collapse !important; width: 100% !important; background-color: #000000 !important; }
+    thead tr { background-color: #0a0a0a !important; }
+    thead th { color: #4a9eff !important; font-family: monospace !important; font-weight: normal !important;
+               border-bottom: 1px solid #2a4a6b !important; padding: 6px 10px !important;
+               font-size: 0.72rem !important; background-color: #0a0a0a !important; }
+    tbody tr { background-color: #000000 !important; }
+    tbody tr:hover { background-color: #080808 !important; }
+    tbody td { color: #e5e7eb !important; font-family: monospace !important; font-size: 0.72rem !important;
+               border-bottom: 1px solid #1a1a1a !important; padding: 5px 10px !important;
+               background-color: #000000 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -262,15 +273,13 @@ def sty(ax, title, xl, yl):
     ax.set_axisbelow(True)
 
 def annotate_be(ax, val, ymin, color=GREEN):
-    ax.annotate(f"BE  ${val:.2f}", xy=(val, ymin), fontsize=6.5, color=color,
-                fontfamily="monospace", ha="center", va="top",
-                bbox=dict(boxstyle="round,pad=0.25", facecolor="#000000", edgecolor=color, linewidth=0.5, alpha=0.85))
+    ax.annotate(f"BE ${val:.2f}", xy=(val, ymin), fontsize=4.5, color=color,
+                fontfamily="monospace", ha="center", va="top", alpha=0.85)
 
 def vline(ax, x, label, color, ymin, ymax):
-    ax.axvline(x, color=color, lw=0.7, linestyle="--", alpha=0.75)
-    ax.annotate(label, xy=(x, ymin+(ymax-ymin)*0.03), fontsize=6.2, color=color,
-                fontfamily="monospace", ha="center", va="bottom", rotation=90,
-                bbox=dict(boxstyle="round,pad=0.2", facecolor="#000000", edgecolor=color, linewidth=0.4, alpha=0.8))
+    ax.axvline(x, color=color, lw=0.5, linestyle="--", alpha=0.6)
+    ax.annotate(label, xy=(x, ymin+(ymax-ymin)*0.04), fontsize=4.5, color=color,
+                fontfamily="monospace", ha="center", va="bottom", rotation=90, alpha=0.85)
 
 # ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 
@@ -414,7 +423,7 @@ It assumes the underlying follows a **Geometric Brownian Motion (GBM)** with con
         st.markdown("""
 | Greek | Formula | Range | Interpretation |
 |---|---|---|---|
-| Delta (Δ) | Call: e^(-qT)·N(d1) / Put: -e^(-qT)·N(-d1) | [-1, 1] | P&L change for +$1 in the underlying. Delta 0.5 = ATM option moves $0.50 per $1 in S |
+| Delta (Δ) | Call: e^(-qT)·N(d1) / Put: -e^(-qT)·N(-d1) | [-1, 1] | Sensitivity of option price to a $1 move in the underlying. An ATM option (Delta ~0.5) gains $0.50 when S rises by $1. |
 | Gamma (Γ) | e^(-qT)·N'(d1) / (S·σ·√T) | > 0 | Rate of change of Delta. High Gamma near expiry means unstable hedge ratio |
 | Vega (ν) | S·e^(-qT)·N'(d1)·√T / 100 | > 0 | P&L change per +1% in volatility. Long options always have positive Vega |
 | Theta (Θ) | See full formula (negative, daily decay) | < 0 (long) | Daily P&L erosion from time alone. Accelerates near expiry (Theta burn) |
@@ -945,8 +954,7 @@ elif st.session_state.page == "app":
             ax.axvline(mp,color=ACCENT,lw=0.8,linestyle="--",alpha=0.9,label=f"Avg  ${mp:.2f}")
             ax.axvline(0, color=GRAY,  lw=0.5,alpha=0.6,label="BE  $0.00")
             ax.set_ylim(0,yh2*1.12)
-            ax.annotate("BE  $0.00",xy=(0,yh2*0.02),fontsize=6.2,color=GRAY,fontfamily="monospace",
-                        ha="center",va="bottom",bbox=dict(boxstyle="round,pad=0.2",facecolor="#000000",edgecolor=GRAY,linewidth=0.4,alpha=0.85))
+            ax.annotate("BE $0.00",xy=(0,yh2*0.02),fontsize=4.5,color=GRAY,fontfamily="monospace",ha="center",va="bottom",alpha=0.8)
             ax.legend(fontsize=7,facecolor=PANEL,edgecolor="#2a4a6b",labelcolor=TEXT,framealpha=0.8)
             sty(ax,f"P&L Distribution  ·  {strategy.replace('_',' ').title()}","P&L ($)","Freq")
             fig_h.tight_layout(pad=1.2); st.pyplot(fig_h,use_container_width=True); plt.close(fig_h)
@@ -960,9 +968,7 @@ elif st.session_state.page == "app":
             vline(ax,S,f"S0  ${S:.0f}",YELLOW,   ys-yps,yS)
             vline(ax,K,f"K  ${K:.0f}", "#9ca3af",ys-yps,yS)
             ax.set_ylim(ys-yps*1.8,yS+yps)
-            ax.annotate("BE  $0.00",xy=(sp.min()+(sp.max()-sp.min())*0.03,0),fontsize=6.2,color=GRAY,
-                        fontfamily="monospace",ha="left",va="bottom",
-                        bbox=dict(boxstyle="round,pad=0.2",facecolor="#000000",edgecolor=GRAY,linewidth=0.4,alpha=0.85))
+            ax.annotate("BE $0.00",xy=(sp.min()+(sp.max()-sp.min())*0.03,0),fontsize=4.5,color=GRAY,fontfamily="monospace",ha="left",va="bottom",alpha=0.8)
             ax.legend(handles=[
                 plt.Line2D([0],[0],marker='o',color='w',markerfacecolor=GREEN, markersize=5,label='Gain',linewidth=0),
                 plt.Line2D([0],[0],marker='o',color='w',markerfacecolor=PURPLE,markersize=5,label='Loss',linewidth=0),
