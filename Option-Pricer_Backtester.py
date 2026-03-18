@@ -64,6 +64,11 @@ st.markdown("""
                    margin-top: -10px; margin-bottom: 15px; }
     .author-link a { color: #4a9eff !important; text-decoration: none; }
     .author-link a:hover { color: #60a5fa !important; text-decoration: underline; }
+    [data-testid="stSidebar"] .stButton > button {
+        background-color: #0a0a0a !important; color: #4a9eff !important;
+        border: 1px solid #4a9eff !important; font-family: monospace !important; font-size: 0.72rem !important; }
+    [data-testid="stSidebar"] .stButton > button:hover {
+        background-color: #0c1a2e !important; border-color: #60a5fa !important; color: #60a5fa !important; }
     .formula-box {
         background-color: #0a0a0a; border: 1px solid #2a4a6b; border-left: 3px solid #4a9eff;
         border-radius: 6px; padding: 14px 18px; margin: 10px 0; font-family: monospace;
@@ -175,6 +180,76 @@ def backtest_strategy_cached(strategy, S0, K, T, r, sigma, q, n_days, n_sims):
         rows.append({"final_spot":Se,"pnl":pnl,"return_pct":(pnl/S0)*100})
     return pd.DataFrame(rows)
 
+# ─── DELTA HEDGING ────────────────────────────────────────────────────────────
+
+@st.cache_data(ttl=300)
+def delta_hedge_simulation(S0, K, T, r, sigma, q, opt, n_days, n_paths, freq):
+    """
+    Simulate dynamic delta hedging of a long option position.
+    At each rebalancing step: adjust stock holding to -Delta (hedge).
+    Final P&L = option payoff + stock P&L + cash account (risk-free).
+    Residual P&L ≈ Gamma P&L (the cost/benefit of hedging imperfectly).
+    """
+    np.random.seed(42)
+    freq_map = {"Daily": 1, "Weekly": 5, "At expiry": n_days}
+    rebal_every = freq_map.get(freq, 1)
+
+    dt = T / n_days
+    hedge_pnls, unhedged_pnls, delta_paths, gamma_pnls = [], [], [], []
+
+    for _ in range(n_paths):
+        # Simulate full price path
+        Z    = np.random.standard_normal(n_days)
+        logS = np.log(S0) + np.cumsum((r - q - 0.5*sigma**2)*dt + sigma*np.sqrt(dt)*Z)
+        path = np.concatenate([[S0], np.exp(logS)])  # length n_days+1
+
+        # Option entry cost
+        entry_cost = bs(S0, K, T, r, sigma, q, opt)
+
+        # Init hedge
+        cash       = -entry_cost   # paid for option
+        stock_pos  = 0.0           # shares held (will be set to -Delta)
+        deltas     = []
+
+        for i in range(n_days):
+            S_now    = path[i]
+            T_rem    = T - i * dt
+            if T_rem < 1e-8:
+                break
+            delta_now = greeks(S_now, K, T_rem, r, sigma, q, opt)["delta"]
+            deltas.append(delta_now)
+
+            # Rebalance only at specified frequency
+            if i % rebal_every == 0:
+                new_stock = -delta_now           # hedge: short Delta shares for long call
+                trade     = new_stock - stock_pos
+                cash     -= trade * S_now        # buy/sell stock at current price
+                stock_pos = new_stock
+
+            # Accrue risk-free interest on cash daily
+            cash *= np.exp(r * dt)
+
+        # At expiry
+        S_T      = path[-1]
+        payoff   = max(S_T - K, 0) if opt == "call" else max(K - S_T, 0)
+        cash    += stock_pos * S_T   # unwind stock position
+        cash    += payoff             # receive option payoff
+
+        hedge_pnl    = cash           # total hedged P&L
+        unhedged_pnl = payoff - entry_cost
+
+        hedge_pnls.append(hedge_pnl)
+        unhedged_pnls.append(unhedged_pnl)
+        delta_paths.append(deltas)
+        gamma_pnls.append(hedge_pnl - unhedged_pnl * 0)   # residual = hedge P&L
+
+    return {
+        "hedge_pnls":    np.array(hedge_pnls),
+        "unhedged_pnls": np.array(unhedged_pnls),
+        "delta_paths":   delta_paths,
+        "entry_cost":    entry_cost,
+    }
+
 # ─── PLOT HELPERS ─────────────────────────────────────────────────────────────
 
 def sty(ax, title, xl, yl):
@@ -268,6 +343,8 @@ with st.sidebar:
                 format_func=lambda x: x.replace('_',' ').title())
             backtest_days = st.slider("Horizon (days)", 1, min(365,T_day), min(T_day,30))
             n_simulations = st.selectbox("Simulations", [100,500,1000,2000], index=2)
+            hedge_freq    = st.selectbox("Delta hedge rebalancing", ["Daily","Weekly","At expiry"], index=0)
+            hedge_n_paths = st.selectbox("Delta hedge paths", [50,100,250], index=1)
 
         st.markdown("---")
         run = st.button("⚡  RUN", use_container_width=True, type="primary")
@@ -277,6 +354,7 @@ with st.sidebar:
         mode="Pricing"; pricing_method="Black-Scholes"
         prem=n_sims=n_steps=seed=0; antithetic=True
         market_price=5.0; strategy="long_call"; backtest_days=30; n_simulations=1000; run=False
+        hedge_freq="Daily"; hedge_n_paths=100
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE: DOCS
@@ -288,8 +366,8 @@ if st.session_state.page == "docs":
     st.markdown('<div class="author-link">by <a href="https://www.linkedin.com/in/arthurcotten/">Arthur Cotten</a> • <a href="https://github.com/arthurcotten">@arthurcotten</a></div>', unsafe_allow_html=True)
     st.markdown("---")
 
-    doc_tab1, doc_tab2, doc_tab3, doc_tab4 = st.tabs([
-        "① Black-Scholes", "② Monte Carlo", "③ Implied Volatility", "④ Backtesting"
+    doc_tab1, doc_tab2, doc_tab3, doc_tab4, doc_tab5 = st.tabs([
+        "① Black-Scholes", "② Monte Carlo", "③ Implied Volatility", "④ Backtesting", "⑤ Delta Hedging"
     ])
 
     # ── BLACK-SCHOLES ─────────────────────────────────────────────────────────
@@ -337,7 +415,7 @@ It assumes the underlying follows a **Geometric Brownian Motion (GBM)** with con
 | Greek | Formula | Range | Interpretation |
 |---|---|---|---|
 | Delta (Δ) | Call: e^(-qT)·N(d1) / Put: -e^(-qT)·N(-d1) | [-1, 1] | P&L change for +$1 in the underlying. Delta 0.5 = ATM option moves $0.50 per $1 in S |
-| Gamma (Γ) | e^(-qT)·N'(d1) / (S·σ·√T) | > 0 | Rate of change of Delta. High Gamma near expiry = unstable hedge ratio |
+| Gamma (Γ) | e^(-qT)·N'(d1) / (S·σ·√T) | > 0 | Rate of change of Delta. High Gamma near expiry means unstable hedge ratio |
 | Vega (ν) | S·e^(-qT)·N'(d1)·√T / 100 | > 0 | P&L change per +1% in volatility. Long options always have positive Vega |
 | Theta (Θ) | See full formula (negative, daily decay) | < 0 (long) | Daily P&L erosion from time alone. Accelerates near expiry (Theta burn) |
 | Rho (ρ) | Call: K·T·e^(-rT)·N(d2)/100 / Put: -K·T·e^(-rT)·N(-d2)/100 | Call > 0 / Put < 0 | P&L change per +1% in risk-free rate. Typically small vs other Greeks |
@@ -542,6 +620,95 @@ on each path. It provides a statistical view of strategy performance: win rate, 
 """)
 
 # ══════════════════════════════════════════════════════════════════════════════
+    # ── DELTA HEDGING DOC ─────────────────────────────────────────────────────
+    with doc_tab5:
+        st.markdown("## Delta Hedging")
+        st.markdown("""
+Delta hedging is the core risk management technique used by options market makers.
+The goal is to eliminate **directional risk (Delta)** by continuously adjusting a stock position,
+so that the portfolio P&L depends only on **Gamma** and **Vega** — not on which way the market moves.
+""")
+        st.markdown("### The Concept")
+        st.markdown('<div class="formula-box">'
+            '<b>Long call position:</b>  Delta > 0  (gains when S rises)<br><br>'
+            '<b>To hedge:</b>  Short Delta shares of stock<br>'
+            '<b>Net portfolio Delta</b> = option Delta + stock Delta = Δ - Δ = 0<br><br>'
+            '<b>Problem:</b>  Delta changes as S moves (Gamma effect)<br>'
+            '<b>Solution:</b>  Rebalance the stock position continuously (or at discrete intervals)<br><br>'
+            '<b>Cost of hedging:</b>  Each rebalance = buy high / sell low when Gamma > 0<br>'
+            'This hedging cost = Theta decay of the option (no free lunch)'
+            '</div>', unsafe_allow_html=True)
+
+        st.markdown("### P&L Attribution of a Delta-Hedged Portfolio")
+        st.markdown('<div class="formula-box">'
+            '<b>Daily P&L of hedged portfolio (Taylor expansion):</b><br><br>'
+            'P&L ≈  ½ · Γ · (ΔS)²  +  ν · Δσ  +  Θ · Δt<br><br>'
+            'where:<br>'
+            '  Γ · (ΔS)²/2  =  Gamma P&L  (realised vol benefit)<br>'
+            '  ν · Δσ        =  Vega P&L   (change in implied vol)<br>'
+            '  Θ · Δt        =  Theta decay (time cost — always negative for long options)<br><br>'
+            '<b>Key insight:</b>  If realised vol > implied vol → Gamma P&L > Theta cost → hedging is profitable<br>'
+            'If realised vol < implied vol → Gamma P&L < Theta cost → hedging loses money'
+            '</div>', unsafe_allow_html=True)
+
+        st.markdown("### Simulation Logic")
+        st.markdown("""
+| Step | Action |
+|---|---|
+| t = 0 | Buy option for C₀. Set stock position = -Δ₀ (short Delta shares). Cash = -C₀ + Δ₀·S₀ |
+| t = 1..N-1 | At each rebalancing step: compute new Δₜ, adjust stock position, debit/credit cash. Accrue risk-free interest on cash. |
+| t = N | Receive option payoff. Unwind stock at Sₙ. Final P&L = cash + stock value + payoff |
+""")
+
+        st.markdown("### Output Metrics")
+        st.markdown("""
+| Metric | Meaning |
+|---|---|
+| Avg Hedged P&L | Should be near zero if vol assumptions hold. Positive if realised vol > implied vol. |
+| Avg Unhedged P&L | Raw directional P&L without any hedge |
+| Hedge Std Dev | Dispersion of hedged P&L — lower = better hedge quality |
+| Hedge Win Rate | % of paths where hedging generated positive P&L |
+| Entry Cost | BS price paid at inception |
+""")
+
+        st.markdown("### Charts")
+        st.markdown("""
+**P&L Distribution — Hedged vs Unhedged**
+- Purple = unhedged P&L distribution (wide, directional)
+- Cyan = delta-hedged P&L distribution (should be narrow, centred near 0)
+- The tighter the hedged distribution, the more effective the hedge
+- Residual spread = hedging error from discrete rebalancing + vol mismatch
+
+**Delta Evolution Over Time**
+- Each cyan line = Delta path on one simulated price path
+- Yellow line = average Delta across all paths
+- Delta starts near 0.5 for ATM options, drifts toward 0 (OTM) or 1 (ITM) as time passes
+- Near expiry: Delta collapses rapidly — Gamma spikes — hedging becomes very costly
+""")
+
+        st.markdown("### Rebalancing Frequency — Practical Implications")
+        st.markdown("""
+| Frequency | Hedging Error | Transaction Cost | Used by |
+|---|---|---|---|
+| Continuous | Zero (theoretical) | Infinite | Textbooks only |
+| Daily | Very low | Low-moderate | Equity options desks |
+| Weekly | Moderate | Low | Some structured product desks |
+| At expiry | Maximum (= unhedged) | None | No hedge |
+
+> In practice, desks hedge based on **Delta bands** (e.g. rebalance when Delta moves by 0.05)
+> rather than fixed time intervals — this balances hedging error against transaction costs.
+""")
+
+        st.markdown("### Why This Matters")
+        st.markdown("""
+- Market makers **buy/sell options** and immediately delta-hedge to isolate Vega and Gamma exposure
+- The P&L of a market maker comes from the **spread between implied vol (sold) and realised vol (hedged)**
+- A trader long Gamma wants **large spot moves** (high realised vol) to offset Theta decay
+- A trader short Gamma (e.g. sold a straddle) wants **low realised vol** — spot stays still
+- Understanding this is fundamental for any derivatives trading or structuring role
+""")
+
+# ══════════════════════════════════════════════════════════════════════════════
 # PAGE: APP
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -602,7 +769,7 @@ elif st.session_state.page == "app":
         Sr=np.linspace(S*0.7,S*1.3,300)
         col1,col2=st.columns([2,1])
         with col1:
-            fig,ax=plt.subplots(figsize=(5.6,3.2),facecolor=BG); ax.set_facecolor(PANEL)
+            fig,ax=plt.subplots(figsize=(4.2,2.4),facecolor=BG); ax.set_facecolor(PANEL)
             pnl=(np.maximum(Sr-K,0)-cost if opt=="call" else np.maximum(K-Sr,0)-cost)
             ym,yM=pnl.min(),pnl.max(); yp=(yM-ym)*0.12
             ax.fill_between(Sr,pnl,0,where=pnl>=0,alpha=0.12,color=GREEN,zorder=1)
@@ -664,9 +831,96 @@ elif st.session_state.page == "app":
 
     # ── BACKTESTING ───────────────────────────────────────────────────────────
     elif mode == "Backtesting":
+
+        # ── INTERNAL VALIDATORS ───────────────────────────────────────────────
+        val_errors, val_warnings, val_ok = [], [], []
+
+        # 1. Put-call parity check
+        call_p = bs(S, K, T, r, sigma, q, "call")
+        put_p  = bs(S, K, T, r, sigma, q, "put")
+        pcp_lhs = call_p - put_p
+        pcp_rhs = S * np.exp(-q*T) - K * np.exp(-r*T)
+        pcp_err = abs(pcp_lhs - pcp_rhs)
+        if pcp_err < 1e-6:
+            val_ok.append(f"Put-Call Parity ✓  (error = {pcp_err:.2e})")
+        else:
+            val_errors.append(f"Put-Call Parity violation: error = {pcp_err:.4f}")
+
+        # 2. Delta bounds
+        g_check = greeks(S, K, T, r, sigma, q, "call")
+        if 0 <= g_check["delta"] <= 1:
+            val_ok.append(f"Call Delta in [0,1] ✓  ({g_check['delta']:.4f})")
+        else:
+            val_errors.append(f"Call Delta out of bounds: {g_check['delta']:.4f}")
+
+        # 3. Option price >= intrinsic value
+        intr_check = max(S - K, 0)
+        if call_p >= intr_check - 1e-6:
+            val_ok.append(f"Call price >= intrinsic ✓  (${call_p:.4f} >= ${intr_check:.4f})")
+        else:
+            val_errors.append(f"Call price below intrinsic: ${call_p:.4f} < ${intr_check:.4f}")
+
+        # 4. Time value should be positive when OTM/ATM
+        tv_check = call_p - intr_check
+        if tv_check >= 0:
+            val_ok.append(f"Time value >= 0 ✓  (${tv_check:.4f})")
+        else:
+            val_errors.append(f"Negative time value: ${tv_check:.4f}")
+
+        # 5. Gamma > 0
+        if g_check["gamma"] > 0:
+            val_ok.append(f"Gamma > 0 ✓  ({g_check['gamma']:.6f})")
+        else:
+            val_errors.append(f"Gamma <= 0: {g_check['gamma']:.6f}")
+
+        # 6. Theta < 0 for long option
+        if g_check["theta"] < 0:
+            val_ok.append(f"Theta < 0 ✓  ({g_check['theta']:.5f}  /day)")
+        else:
+            val_warnings.append(f"Theta positive for long option: {g_check['theta']:.5f}")
+
+        # 7. Input sanity
+        if sigma <= 0:
+            val_errors.append("Volatility must be > 0")
+        elif sigma > 2.0:
+            val_warnings.append(f"Very high volatility: {sigma*100:.0f}% — results may be unreliable")
+        if T <= 0:
+            val_errors.append("Maturity must be > 0")
+        if S <= 0 or K <= 0:
+            val_errors.append("Spot and Strike must be > 0")
+
+        # Display validators
+        with st.expander("✅ Internal Validators", expanded=False):
+            if val_errors:
+                for e in val_errors:
+                    st.error(f"❌  {e}")
+            if val_warnings:
+                for w in val_warnings:
+                    st.warning(f"⚠️  {w}")
+            for o in val_ok:
+                st.success(f"✓  {o}")
+            st.markdown(f"""
+**Summary:**  {len(val_ok)} checks passed · {len(val_warnings)} warnings · {len(val_errors)} errors
+
+| Check | Description |
+|---|---|
+| Put-Call Parity | C - P = S·e^(-qT) - K·e^(-rT) — fundamental no-arbitrage identity |
+| Delta bounds | Call Delta must be in [0,1], Put Delta in [-1,0] |
+| Price >= intrinsic | Option can never be worth less than its exercise value |
+| Time value >= 0 | Intrinsic is the floor — any premium above it is time value |
+| Gamma > 0 | Long options always have positive Gamma |
+| Theta < 0 | Long options lose value with time (all else equal) |
+| Input ranges | Volatility, spot, strike, maturity must be economically valid |
+""")
+
+        if val_errors:
+            st.error("❌ Critical validation errors detected — results may be incorrect.")
+            st.stop()
+
+        # ── RUN BACKTEST ──────────────────────────────────────────────────────
         with st.spinner("Running backtest..."):
             try:
-                df=backtest_strategy_cached(strategy,S,K,T,r,sigma,q,backtest_days,n_simulations)
+                df = backtest_strategy_cached(strategy,S,K,T,r,sigma,q,backtest_days,n_simulations)
             except Exception as e:
                 st.error(f"Error: {e}"); st.stop()
 
@@ -679,6 +933,7 @@ elif st.session_state.page == "app":
         c1.metric("Avg P&L",   f"${mp:.2f}"); c2.metric("Median P&L",f"${med:.2f}")
         c3.metric("Win Rate",  f"{wr:.1f}%"); c4.metric("Max Gain",  f"${mg:.2f}")
         c5.metric("Max Loss",  f"${ml:.2f}"); c6.metric("Sharpe",    f"{shr:.3f}")
+
         st.markdown("---")
         ch,cs2=st.columns(2)
         with ch:
@@ -716,10 +971,85 @@ elif st.session_state.page == "app":
             sty(ax,"P&L vs Final Spot","Final spot ($)","P&L ($)")
             fig_sc.tight_layout(pad=1.2); st.pyplot(fig_sc,use_container_width=True); plt.close(fig_sc)
 
-        st.markdown("---"); st.markdown("### Percentiles")
+        st.markdown("---")
+        st.markdown("### Percentiles")
         pcts=[5,25,50,75,95]
         st.dataframe(pd.DataFrame({
             "Percentile": [f"{p}%" for p in pcts],
             "P&L ($)":    [f"${df['pnl'].quantile(p/100):.2f}" for p in pcts],
             "Return (%)": [f"{df['return_pct'].quantile(p/100):.2f}%" for p in pcts],
         }),use_container_width=True,hide_index=True)
+
+        # ── DELTA HEDGING ─────────────────────────────────────────────────────
+        st.markdown("---")
+        st.markdown("### Delta Hedging Simulation")
+        st.markdown(f"*Rebalancing: **{hedge_freq}** — {hedge_n_paths} paths  ·  strategy: long {opt}*")
+
+        with st.spinner("Running delta hedge simulation..."):
+            hres = delta_hedge_simulation(S, K, T, r, sigma, q, opt,
+                                          backtest_days, hedge_n_paths, hedge_freq)
+
+        hp  = hres["hedge_pnls"]
+        uhp = hres["unhedged_pnls"]
+        dps = hres["delta_paths"]
+
+        # Hedge validator
+        hedge_val_ok = []
+        if abs(hp.mean()) < abs(uhp.mean()) * 0.5:
+            hedge_val_ok.append(f"Hedge reduces avg P&L magnitude ✓  (hedged: ${hp.mean():.3f}  vs  unhedged: ${uhp.mean():.2f})")
+        if hp.std() < uhp.std():
+            hedge_val_ok.append(f"Hedge reduces P&L dispersion ✓  (std: ${hp.std():.3f}  vs  ${uhp.std():.2f})")
+        entry = hres["entry_cost"]
+        bs_check = bs(S, K, T, r, sigma, q, opt)
+        if abs(entry - bs_check) < 1e-4:
+            hedge_val_ok.append(f"Entry cost matches BS price ✓  (${entry:.4f})")
+
+        if hedge_val_ok:
+            with st.expander("✅ Hedge Validators", expanded=False):
+                for v in hedge_val_ok:
+                    st.success(f"✓  {v}")
+
+        hc1,hc2,hc3,hc4,hc5 = st.columns(5)
+        hc1.metric("Avg Hedged P&L",   f"${hp.mean():.3f}")
+        hc2.metric("Avg Unhedged P&L", f"${uhp.mean():.2f}")
+        hc3.metric("Hedge Std Dev",    f"${hp.std():.3f}")
+        hc4.metric("Hedge Win Rate",   f"{(hp>0).sum()/len(hp)*100:.1f}%")
+        hc5.metric("Entry Cost",       f"${hres['entry_cost']:.4f}")
+
+        st.markdown("""
+> **Key insight:** A delta-hedged P&L near zero confirms the model is consistent.
+> Positive residual = realised vol exceeded implied vol (Gamma won over Theta).
+> The wider the hedged distribution vs a flat line at zero, the greater the hedging error from discrete rebalancing.
+""")
+
+        col_hh, col_hs = st.columns(2)
+        with col_hh:
+            fig_hh,ax=plt.subplots(figsize=(4.2,2.8),facecolor=BG); ax.set_facecolor(PANEL)
+            all_vals = np.concatenate([hp, uhp])
+            bins_h   = np.linspace(all_vals.min(), all_vals.max(), 40)
+            ax.hist(uhp, bins=bins_h, color=PURPLE, alpha=0.5, edgecolor="none", label="Unhedged")
+            ax.hist(hp,  bins=bins_h, color=CYAN,   alpha=0.6, edgecolor="none", label="Delta-Hedged")
+            ax.axvline(0,        color=GRAY,  lw=0.6, linestyle="-",  alpha=0.7)
+            ax.axvline(hp.mean(),color=CYAN,  lw=0.9, linestyle="--", alpha=0.9, label=f"Hedged avg ${hp.mean():.3f}")
+            ax.legend(fontsize=6.5, facecolor=PANEL, edgecolor="#2a4a6b", labelcolor=TEXT, framealpha=0.8)
+            sty(ax,"P&L  ·  Hedged vs Unhedged","P&L ($)","Freq")
+            fig_hh.tight_layout(pad=1.2); st.pyplot(fig_hh,use_container_width=True); plt.close(fig_hh)
+
+        with col_hs:
+            fig_hs,ax=plt.subplots(figsize=(4.2,2.8),facecolor=BG); ax.set_facecolor(PANEL)
+            n_show = min(25, len(dps))
+            days_x = np.arange(backtest_days)
+            for dp in dps[:n_show]:
+                length = min(len(dp), backtest_days)
+                ax.plot(days_x[:length], dp[:length], color=CYAN, lw=0.4, alpha=0.3)
+            max_len = max(len(dp) for dp in dps[:n_show])
+            mean_d  = np.array([
+                np.mean([dps[i][t] for i in range(n_show) if t < len(dps[i])])
+                for t in range(max_len)
+            ])
+            ax.plot(days_x[:len(mean_d)], mean_d, color=YELLOW, lw=1.2, label="Avg Delta")
+            ax.axhline(0.5, color=GRAY, lw=0.5, linestyle=":", alpha=0.6, label="Δ = 0.5 (ATM)")
+            ax.set_ylim(-0.05, 1.05)
+            ax.legend(fontsize=6.5, facecolor=PANEL, edgecolor="#2a4a6b", labelcolor=TEXT, framealpha=0.8)
+            sty(ax,"Delta Evolution Over Time","Day","Delta")
+            fig_hs.tight_layout(pad=1.2); st.pyplot(fig_hs,use_container_width=True); plt.close(fig_hs)
