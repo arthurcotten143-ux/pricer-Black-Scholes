@@ -226,16 +226,18 @@ def legend_entry(color, label, linestyle="--"):
 
 def label_xaxis(ax, points):
     """
-    Add colored boxed labels BELOW the x-axis for key values.
+    Add colored boxed labels below the x-axis, staggered on two rows to avoid overlap.
     points = list of (x_value, label_str, color)
-    Avoids overlapping with regular tick labels by using annotate in figure coords.
+    Even index = row 1 (closer), Odd index = row 2 (further down).
     """
-    for (x_val, label, color) in points:
+    row_offset = {0: -20, 1: -36}
+    for i, (x_val, label, color) in enumerate(points):
+        y_offset = row_offset[i % 2]
         ax.annotate(
             label,
             xy=(x_val, ax.get_ylim()[0]),
             xycoords="data",
-            xytext=(0, -22),
+            xytext=(0, y_offset),
             textcoords="offset points",
             fontsize=6.0,
             color=color,
@@ -482,8 +484,8 @@ elif st.session_state.page == "app":
                 (S,  f"S={S:.0f}",   "#9ca3af"),
             ])
             sty(ax,f"P&L  ·  {opt.upper()}","","P&L ($)")
-            fig.subplots_adjust(bottom=0.22)
-            fig.tight_layout(pad=1.2); st.pyplot(fig,use_container_width=True); plt.close(fig)
+            fig.subplots_adjust(bottom=0.28)
+            st.pyplot(fig,use_container_width=True); plt.close(fig)
 
         with col2:
             if pricing_method=="Monte Carlo" and mc_paths is not None:
@@ -624,8 +626,8 @@ elif st.session_state.page == "app":
                 legend_entry(GRAY, "BE $0.00", linestyle="-"),
             ], fontsize=6.5, facecolor=PANEL, edgecolor="#2a4a6b", labelcolor=TEXT, framealpha=0.85, loc="upper left")
             sty(ax,"P&L vs Final Spot","","P&L ($)")
-            fig_sc.subplots_adjust(bottom=0.22)
-            fig_sc.tight_layout(pad=1.2); st.pyplot(fig_sc,use_container_width=True); plt.close(fig_sc)
+            fig_sc.subplots_adjust(bottom=0.28)
+            st.pyplot(fig_sc,use_container_width=True); plt.close(fig_sc)
 
         st.markdown("---"); st.markdown("### Percentiles")
         pcts=[5,25,50,75,95]
