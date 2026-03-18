@@ -309,60 +309,39 @@ It assumes the underlying follows a **Geometric Brownian Motion (GBM)** with con
             '</div>', unsafe_allow_html=True)
 
         st.markdown("### Input Parameters")
-        st.dataframe(pd.DataFrame({
-            "Parameter": ["S", "K", "T", "r", "σ", "q"],
-            "Name": ["Spot price", "Strike price", "Time to maturity", "Risk-free rate", "Volatility", "Dividend yield"],
-            "Unit": ["$", "$", "years (= days/365)", "decimal (e.g. 0.05)", "decimal (e.g. 0.20)", "decimal (e.g. 0.02)"],
-            "Role": [
-                "Current market price of the underlying asset",
-                "Price at which the option can be exercised",
-                "Time remaining until expiration",
-                "Continuously compounded risk-free interest rate",
-                "Annualised standard deviation of log-returns — key driver of option price",
-                "Continuous dividend yield paid by the underlying"
-            ]
-        }), use_container_width=True, hide_index=True)
+        st.markdown("""
+| Parameter | Name | Unit | Role |
+|---|---|---|---|
+| S | Spot price | $ | Current market price of the underlying asset |
+| K | Strike price | $ | Price at which the option can be exercised |
+| T | Time to maturity | years (= days/365) | Time remaining until expiration |
+| r | Risk-free rate | decimal (e.g. 0.05) | Continuously compounded risk-free interest rate |
+| σ | Volatility | decimal (e.g. 0.20) | Annualised standard deviation of log-returns — key driver of option price |
+| q | Dividend yield | decimal (e.g. 0.02) | Continuous dividend yield paid by the underlying |
+""")
 
         st.markdown("### Output Metrics")
-        st.dataframe(pd.DataFrame({
-            "Metric": ["Price", "Break-even", "Prob ITM", "Intrinsic Value", "Time Value", "Moneyness"],
-            "Formula / Definition": [
-                "C or P from above formula",
-                "Call: K + premium paid  /  Put: K - premium paid",
-                "Call: N(d2)  /  Put: N(-d2)",
-                "Call: max(S-K, 0)  /  Put: max(K-S, 0)",
-                "Price - Intrinsic Value",
-                "ITM if S>K (call) or S<K (put) / ATM if S≈K / OTM otherwise"
-            ],
-            "Interpretation": [
-                "Theoretical fair value of the option under BS assumptions",
-                "Spot level at which you neither gain nor lose at expiry",
-                "Risk-neutral probability the option expires in-the-money",
-                "Value if exercised immediately — minimum floor of option price",
-                "Premium paid for optionality over time — decays as T→0",
-                "Position of the strike relative to the current spot"
-            ]
-        }), use_container_width=True, hide_index=True)
+        st.markdown("""
+| Metric | Formula / Definition | Interpretation |
+|---|---|---|
+| Price | C or P from above formula | Theoretical fair value of the option under BS assumptions |
+| Break-even | Call: K + premium paid / Put: K - premium paid | Spot level at which you neither gain nor lose at expiry |
+| Prob ITM | Call: N(d2) / Put: N(-d2) | Risk-neutral probability the option expires in-the-money |
+| Intrinsic Value | Call: max(S-K, 0) / Put: max(K-S, 0) | Value if exercised immediately — minimum floor of option price |
+| Time Value | Price - Intrinsic Value | Premium paid for optionality over time — decays as T→0 |
+| Moneyness | ITM if S>K (call) / ATM if S≈K / OTM otherwise | Position of the strike relative to the current spot |
+""")
 
         st.markdown("### Greeks")
-        st.dataframe(pd.DataFrame({
-            "Greek": ["Delta (Δ)", "Gamma (Γ)", "Vega (ν)", "Theta (Θ)", "Rho (ρ)"],
-            "Formula": [
-                "Call: e^(-qT)·N(d1)  /  Put: -e^(-qT)·N(-d1)",
-                "e^(-qT)·N'(d1) / (S·σ·√T)",
-                "S·e^(-qT)·N'(d1)·√T / 100",
-                "See full formula (negative, daily decay)",
-                "Call: K·T·e^(-rT)·N(d2)/100  /  Put: -K·T·e^(-rT)·N(-d2)/100"
-            ],
-            "Range": ["[-1, 1]", "> 0", "> 0", "< 0 (long)", "Call > 0 / Put < 0"],
-            "Interpretation": [
-                "P&L change for +$1 in the underlying. Delta 0.5 = ATM option moves $0.50 per $1 in S",
-                "Rate of change of Delta. High Gamma near expiry = unstable hedge ratio",
-                "P&L change per +1% in volatility. Long options always have positive Vega",
-                "Daily P&L erosion from time alone. Accelerates near expiry (Theta burn)",
-                "P&L change per +1% in risk-free rate. Typically small vs other Greeks"
-            ]
-        }), use_container_width=True, hide_index=True)
+        st.markdown("""
+| Greek | Formula | Range | Interpretation |
+|---|---|---|---|
+| Delta (Δ) | Call: e^(-qT)·N(d1) / Put: -e^(-qT)·N(-d1) | [-1, 1] | P&L change for +$1 in the underlying. Delta 0.5 = ATM option moves $0.50 per $1 in S |
+| Gamma (Γ) | e^(-qT)·N'(d1) / (S·σ·√T) | > 0 | Rate of change of Delta. High Gamma near expiry = unstable hedge ratio |
+| Vega (ν) | S·e^(-qT)·N'(d1)·√T / 100 | > 0 | P&L change per +1% in volatility. Long options always have positive Vega |
+| Theta (Θ) | See full formula (negative, daily decay) | < 0 (long) | Daily P&L erosion from time alone. Accelerates near expiry (Theta burn) |
+| Rho (ρ) | Call: K·T·e^(-rT)·N(d2)/100 / Put: -K·T·e^(-rT)·N(-d2)/100 | Call > 0 / Put < 0 | P&L change per +1% in risk-free rate. Typically small vs other Greeks |
+""")
 
         st.markdown("### P&L Chart — How to Read It")
         st.markdown("""
@@ -420,16 +399,14 @@ volatility, and complex structures. Here it is applied to vanilla options as a v
             '</div>', unsafe_allow_html=True)
 
         st.markdown("### MC-Specific Settings")
-        st.dataframe(pd.DataFrame({
-            "Setting": ["Simulations (M)", "Time steps (N)", "Antithetic variates", "Seed"],
-            "Effect": [
-                "More paths → lower Standard Error → more accurate price. SE ∝ 1/√M",
-                "More steps → finer discretisation of the path. 252 = daily steps over 1 year",
-                "Halves variance of the estimator. Always recommended unless benchmarking",
-                "Fixes the random number sequence for reproducibility"
-            ],
-            "Recommended": ["100,000+", "252 (daily)", "On", "Any fixed integer"]
-        }), use_container_width=True, hide_index=True)
+        st.markdown("""
+| Setting | Effect | Recommended |
+|---|---|---|
+| Simulations (M) | More paths → lower Standard Error → more accurate price. SE ∝ 1/√M | 100,000+ |
+| Time steps (N) | More steps → finer discretisation of the path. 252 = daily steps over 1 year | 252 (daily) |
+| Antithetic variates | Halves variance of the estimator. Always recommended unless benchmarking | On |
+| Seed | Fixes the random number sequence for reproducibility | Any fixed integer |
+""")
 
         st.markdown("### Output — Distribution Chart")
         st.markdown("""
@@ -461,15 +438,14 @@ uncertainty — not a historical measure.
             '</div>', unsafe_allow_html=True)
 
         st.markdown("### Output Metrics")
-        st.dataframe(pd.DataFrame({
-            "Metric": ["Implied Vol", "Market price", "Theoretical price", "Vega"],
-            "Meaning": [
-                "σ* — the volatility implied by the observed market price",
-                "The option price as traded/quoted in the market",
-                "BS price recalculated using σ* — should equal market price (sanity check)",
-                "Sensitivity of option price to a +1% change in σ* — measures IV risk"
-            ]
-        }), use_container_width=True, hide_index=True)
+        st.markdown("""
+| Metric | Meaning |
+|---|---|
+| Implied Vol | σ* — the volatility implied by the observed market price |
+| Market price | The option price as traded/quoted in the market |
+| Theoretical price | BS price recalculated using σ* — should equal market price (sanity check) |
+| Vega | Sensitivity of option price to a +1% change in σ* — measures IV risk |
+""")
 
         st.markdown("### Volatility Skew Chart")
         st.markdown("""
@@ -509,41 +485,28 @@ on each path. It provides a statistical view of strategy performance: win rate, 
             '</div>', unsafe_allow_html=True)
 
         st.markdown("### Strategy P&L Formulas")
-        st.dataframe(pd.DataFrame({
-            "Strategy": ["Long Call","Long Put","Covered Call","Protective Put","Straddle","Strangle"],
-            "P&L Formula": [
-                "max(S(T)-K, 0) - C₀",
-                "max(K-S(T), 0) - P₀",
-                "(S(T)-S₀) + C₀ - max(S(T)-K, 0)",
-                "(S(T)-S₀) - P₀ + max(K-S(T), 0)",
-                "max(S(T)-K,0) + max(K-S(T),0) - C₀ - P₀",
-                "max(S(T)-Kc,0) + max(Kp-S(T),0) - Cc - Pp  [Kc=K×1.05, Kp=K×0.95]"
-            ],
-            "Max Gain": ["Unlimited","K-premium","C₀ (capped at K)","Unlimited","Unlimited","Unlimited"],
-            "Max Loss": ["Premium C₀","Premium P₀","Stock can go to 0","Premium P₀","C₀+P₀","Cc+Pp"],
-            "Breakeven": ["K+C₀","K-P₀","S₀-C₀","S₀+P₀","K±(C₀+P₀)","Kc+premium or Kp-premium"]
-        }), use_container_width=True, hide_index=True)
+        st.markdown("""
+| Strategy | P&L Formula | Max Gain | Max Loss | Breakeven |
+|---|---|---|---|---|
+| Long Call | max(S(T)-K, 0) - C₀ | Unlimited | Premium C₀ | K + C₀ |
+| Long Put | max(K-S(T), 0) - P₀ | K - premium | Premium P₀ | K - P₀ |
+| Covered Call | (S(T)-S₀) + C₀ - max(S(T)-K, 0) | C₀ (capped at K) | Stock → 0 | S₀ - C₀ |
+| Protective Put | (S(T)-S₀) - P₀ + max(K-S(T), 0) | Unlimited | Premium P₀ | S₀ + P₀ |
+| Straddle | max(S(T)-K,0) + max(K-S(T),0) - C₀ - P₀ | Unlimited | C₀ + P₀ | K ± (C₀+P₀) |
+| Strangle | max(S(T)-Kc,0) + max(Kp-S(T),0) - Cc - Pp | Unlimited | Cc + Pp | Kc+premium or Kp-premium |
+""")
 
         st.markdown("### Output Metrics")
-        st.dataframe(pd.DataFrame({
-            "Metric": ["Avg P&L","Median P&L","Win Rate","Max Gain","Max Loss","Sharpe"],
-            "Formula": [
-                "Mean of all path P&Ls",
-                "50th percentile of P&L distribution",
-                "% of paths with P&L > 0",
-                "max(P&L across all paths)",
-                "min(P&L across all paths)",
-                "Avg P&L / Std(P&L) × √252"
-            ],
-            "Interpretation": [
-                "Expected value of the strategy under GBM — positive does not mean risk-free",
-                "More robust than mean when distribution is skewed",
-                "How often the strategy expires in profit — high WR ≠ good strategy (e.g. covered call)",
-                "Best-case scenario across simulations",
-                "Worst-case scenario — key metric for risk management",
-                "Annualised risk-adjusted return. >1 = good, >2 = strong, <0 = destroys value"
-            ]
-        }), use_container_width=True, hide_index=True)
+        st.markdown("""
+| Metric | Formula | Interpretation |
+|---|---|---|
+| Avg P&L | Mean of all path P&Ls | Expected value of the strategy under GBM — positive does not mean risk-free |
+| Median P&L | 50th percentile of P&L distribution | More robust than mean when distribution is skewed |
+| Win Rate | % of paths with P&L > 0 | How often the strategy expires in profit — high WR ≠ good strategy |
+| Max Gain | max(P&L across all paths) | Best-case scenario across simulations |
+| Max Loss | min(P&L across all paths) | Worst-case scenario — key metric for risk management |
+| Sharpe | Avg P&L / Std(P&L) × √252 | Annualised risk-adjusted return. >1 = good, >2 = strong, <0 = destroys value |
+""")
 
         st.markdown("### P&L Distribution Chart — How to Read It")
         st.markdown("""
