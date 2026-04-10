@@ -12,9 +12,10 @@ st.set_page_config(page_title="Pricer", layout="centered")
 
 st.markdown("""
 <style>
-.block-container{padding-top:4rem;padding-bottom:1rem;max-width:800px;}
-div[data-testid="stVerticalBlock"]{gap:0.15rem;}
-p{margin:0;font-size:14px;}
+.block-container{padding-top:3rem;padding-bottom:1rem;max-width:800px;}
+div[data-testid="stVerticalBlock"]{gap:0.4rem;}
+p{margin:0;font-size:14px;line-height:1.6;}
+h1{font-size:1.8rem;margin-bottom:1rem;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -55,8 +56,8 @@ def greeks(S,K,T,r,sig,q=0,opt="call"):
     vega=S*np.exp(-q*T)*nd1*np.sqrt(T)/100
     return {"delta":delta,"gamma":gamma,"vega":vega,"theta":theta,"rho":rho}
 
-def mc(S,K,T,r,sig,q,opt,n):
-    np.random.seed(42)
+def mc(S,K,T,r,sig,q,opt,n,seed):
+    np.random.seed(seed)
     Z=np.random.standard_normal(n)
     ST=S*np.exp((r-q-0.5*sig**2)*T+sig*np.sqrt(T)*Z)
     pay=np.maximum(ST-K,0) if opt=="call" else np.maximum(K-ST,0)
@@ -81,7 +82,8 @@ with st.sidebar:
     st.write("**PRICER**")
     mode=st.selectbox("",["Pricing","Backtest"],label_visibility="collapsed")
     method="BS"
-    if mode=="Pricing":method=st.radio("",["BS","MC"],horizontal=True,label_visibility="collapsed")
+    if mode=="Pricing":
+        method=st.radio("",["BS","MC"],horizontal=True,label_visibility="collapsed")
     st.write("---")
     S=st.number_input("Spot",value=100.0)
     K=st.number_input("Strike",value=100.0)
@@ -90,30 +92,38 @@ with st.sidebar:
     sig=st.number_input("Volatility (%)",value=20.0)/100
     q=st.number_input("Dividend (%)",value=0.0)/100
     opt=st.radio("",["call","put"],horizontal=True,label_visibility="collapsed")
+    
+    n_sims=50000
+    seed=42
+    if mode=="Pricing" and method=="MC":
+        st.write("---")
+        n_sims=st.selectbox("Simulations",[10000,50000,100000,200000],index=1)
+        seed=st.number_input("Seed",value=42,min_value=1)
+    
     if mode=="Backtest":
-        strat=st.selectbox("",["call","put","straddle"],label_visibility="collapsed")
+        st.write("---")
+        strat=st.selectbox("Strategy",["call","put","straddle"])
         nsim=st.selectbox("Simulations",[500,1000,2000],index=1)
 
 T=T_d/365
 
 # MAIN
 if mode=="Pricing":
+    st.markdown("# " + opt.upper())
+    
     if method=="BS":
         p=bs(S,K,T,r,sig,q,opt)
         g=greeks(S,K,T,r,sig,q,opt)
         se=None
         paths=None
     else:
-        p,se,paths=mc(S,K,T,r,sig,q,opt,50000)
+        p,se,paths=mc(S,K,T,r,sig,q,opt,n_sims,seed)
         g=greeks(S,K,T,r,sig,q,opt)
     
     be=K+p if opt=="call" else K-p
     intr=max(S-K,0) if opt=="call" else max(K-S,0)
     d2=(np.log(S/K)+(r-q-0.5*sig**2)*T)/(sig*np.sqrt(T))
     prob_itm=norm.cdf(d2) if opt=="call" else norm.cdf(-d2)
-    
-    st.markdown(f"**{opt.upper()}**")
-    st.write("")
     
     c1,c2=st.columns(2)
     with c1:
@@ -129,7 +139,6 @@ if mode=="Pricing":
         st.write(f"Theta = {g['theta']:.4f}")
         st.write(f"Rho = {g['rho']:.4f}")
     
-    st.write("")
     st.write("")
     fig,ax=plt.subplots(figsize=(6,2.5))
     Sr=np.linspace(S*0.7,S*1.3,150)
@@ -159,10 +168,9 @@ if mode=="Pricing":
         plt.close()
 
 else:
-    pnls,Sf=backtest(strat,S,K,T,r,sig,q,T_d,nsim)
+    st.markdown("# " + strat.upper())
     
-    st.markdown(f"**{strat.upper()}**")
-    st.write("")
+    pnls,Sf=backtest(strat,S,K,T,r,sig,q,T_d,nsim)
     
     c1,c2=st.columns(2)
     with c1:
@@ -178,7 +186,6 @@ else:
         st.write(f"P75 = {pcts[3]:.2f}")
         st.write(f"P95 = {pcts[4]:.2f}")
     
-    st.write("")
     st.write("")
     fig,ax=plt.subplots(figsize=(6,2.2))
     ax.hist(pnls[pnls>=0],bins=25,color="#2e7d32",alpha=0.5,edgecolor="white",lw=0.3)
