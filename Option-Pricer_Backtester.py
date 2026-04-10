@@ -15,20 +15,24 @@ st.markdown("""
 .block-container{padding-top:3rem;padding-bottom:1rem;max-width:800px;}
 div[data-testid="stVerticalBlock"]{gap:0.4rem;}
 p{margin:0;font-size:14px;line-height:1.6;}
-h1{font-size:2.2rem;margin-bottom:1.5rem;font-weight:600;}
+h1{font-size:2.2rem !important;margin-bottom:1.5rem !important;font-weight:600 !important;margin-top:0 !important;}
 
-/* Square inputs */
-input, select, [data-baseweb="select"] > div {
-    border-radius: 2px !important;
-}
-button {
-    border-radius: 2px !important;
-}
-[data-testid="stNumberInput"] > div > div > input {
-    border-radius: 2px !important;
-}
-[data-testid="stSelectbox"] > div > div {
-    border-radius: 2px !important;
+/* Force square corners everywhere */
+div[data-baseweb="select"] > div,
+div[data-baseweb="input"] > div,
+div[data-baseweb="base-input"],
+input[type="number"],
+input[type="text"],
+[data-testid="stNumberInput"] input,
+[data-testid="stSelectbox"] > div > div,
+[data-testid="stSelectbox"] > div > div > div,
+.stSelectbox > div > div,
+.stNumberInput > div > div > input,
+button[kind="secondary"],
+button[kind="primary"],
+.stButton > button,
+[data-baseweb="popover"] > div {
+    border-radius: 0px !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -98,7 +102,7 @@ def backtest(strat,S,K,T,r,sig,q,days,n):
 
 # SIDEBAR
 with st.sidebar:
-    st.write("**PRICER**")
+    st.markdown("### PRICER")
     mode=st.selectbox("",["Pricing","Implied Vol","Backtest"],label_visibility="collapsed")
     method="BS"
     if mode=="Pricing":
