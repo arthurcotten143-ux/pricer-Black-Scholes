@@ -63,6 +63,11 @@ def mc(S,K,T,r,sig,q,opt,n,seed):
     pay=np.maximum(ST-K,0) if opt=="call" else np.maximum(K-ST,0)
     return np.exp(-r*T)*np.mean(pay),np.exp(-r*T)*np.std(pay)/np.sqrt(n),ST[:300]
 
+def skewed_iv(base_iv,S,K,T,skew_slope,skew_conv,term_slope):
+    moneyness=1.0-K/S
+    term_adj=T-0.25
+    return max(base_iv+skew_slope*moneyness+skew_conv*(moneyness**2)+term_slope*term_adj,0.01)
+
 def backtest(strat,S,K,T,r,sig,q,days,n):
     np.random.seed(42)
     dt=T/days
@@ -80,7 +85,7 @@ def backtest(strat,S,K,T,r,sig,q,days,n):
 # SIDEBAR
 with st.sidebar:
     st.write("**PRICER**")
-    mode=st.selectbox("",["Pricing","Backtest"],label_visibility="collapsed")
+    mode=st.selectbox("",["Pricing","Implied Vol","Backtest"],label_visibility="collapsed")
     method="BS"
     if mode=="Pricing":
         method=st.radio("",["BS","MC"],horizontal=True,label_visibility="collapsed")
@@ -95,10 +100,20 @@ with st.sidebar:
     
     n_sims=50000
     seed=42
+    skew_slope=0.10
+    skew_conv=0.05
+    term_slope=0.02
+    
     if mode=="Pricing" and method=="MC":
         st.write("---")
         n_sims=st.selectbox("Simulations",[10000,50000,100000,200000],index=1)
         seed=st.number_input("Seed",value=42,min_value=1)
+    
+    if mode=="Implied Vol":
+        st.write("---")
+        skew_slope=st.slider("Skew slope",-0.50,0.50,0.10,0.01)
+        skew_conv=st.slider("Skew convexity",0.00,0.50,0.05,0.01)
+        term_slope=st.slider("Term slope",-0.20,0.20,0.02,0.01)
     
     if mode=="Backtest":
         st.write("---")
@@ -166,6 +181,51 @@ if mode=="Pricing":
         plt.tight_layout()
         st.pyplot(fig,use_container_width=False)
         plt.close()
+
+elif mode=="Implied Vol":
+    st.markdown("# IMPLIED VOL")
+    
+    iv_skew=skewed_iv(sig,S,K,T,skew_slope,skew_conv,term_slope)
+    price_flat=bs(S,K,T,r,sig,q,opt)
+    price_skew=bs(S,K,T,r,iv_skew,q,opt)
+    gap=price_skew-price_flat
+    
+    c1,c2=st.columns(2)
+    with c1:
+        st.write(f"Flat σ = {sig*100:.1f}%")
+        st.write(f"Skew IV = {iv_skew*100:.1f}%")
+        st.write(f"IV shift = {(iv_skew-sig)*100:+.2f}%")
+    with c2:
+        st.write(f"Price (flat) = {price_flat:.4f}")
+        st.write(f"Price (skew) = {price_skew:.4f}")
+        st.write(f"Gap = {gap:+.4f}")
+    
+    st.write("")
+    fig,ax=plt.subplots(figsize=(6,2.5))
+    strikes=np.linspace(S*0.7,S*1.3,30)
+    ivs=[skewed_iv(sig,S,k,T,skew_slope,skew_conv,term_slope)*100 for k in strikes]
+    ax.plot([k/S for k in strikes],ivs,color="#1565c0",lw=1,marker="o",ms=3)
+    ax.axhline(sig*100,color="#c62828",lw=0.7,ls="--")
+    ax.axvline(1.0,color="#999",lw=0.5,ls=":")
+    ax.set_xlabel("Moneyness (K/S)")
+    ax.set_ylabel("IV (%)")
+    ax.grid(True,alpha=0.3)
+    plt.tight_layout()
+    st.pyplot(fig,use_container_width=False)
+    plt.close()
+    
+    fig,ax=plt.subplots(figsize=(6,2))
+    mats=np.linspace(max(T,7/365),min(T*3,2.0),20)
+    ivs_term=[skewed_iv(sig,S,K,m,skew_slope,skew_conv,term_slope)*100 for m in mats]
+    ax.plot([m*365 for m in mats],ivs_term,color="#1565c0",lw=1,marker="o",ms=3)
+    ax.axhline(sig*100,color="#c62828",lw=0.7,ls="--")
+    ax.axvline(T_d,color="#999",lw=0.5,ls=":")
+    ax.set_xlabel("Maturity (days)")
+    ax.set_ylabel("IV (%)")
+    ax.grid(True,alpha=0.3)
+    plt.tight_layout()
+    st.pyplot(fig,use_container_width=False)
+    plt.close()
 
 else:
     st.markdown("# " + strat.upper())
