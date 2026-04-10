@@ -12,7 +12,7 @@ st.set_page_config(page_title="Pricer", layout="centered")
 
 st.markdown("""
 <style>
-.block-container{padding-top:2.5rem;padding-bottom:1rem;max-width:800px;}
+.block-container{padding-top:4rem;padding-bottom:1rem;max-width:800px;}
 div[data-testid="stVerticalBlock"]{gap:0.15rem;}
 p{margin:0;font-size:14px;}
 </style>
@@ -83,16 +83,16 @@ with st.sidebar:
     method="BS"
     if mode=="Pricing":method=st.radio("",["BS","MC"],horizontal=True,label_visibility="collapsed")
     st.write("---")
-    S=st.number_input("S",value=100.0)
-    K=st.number_input("K",value=100.0)
-    T_d=st.number_input("T(d)",value=30,min_value=1)
-    r=st.number_input("r%",value=5.0)/100
-    sig=st.number_input("σ%",value=20.0)/100
-    q=st.number_input("q%",value=0.0)/100
+    S=st.number_input("Spot",value=100.0)
+    K=st.number_input("Strike",value=100.0)
+    T_d=st.number_input("Maturity (days)",value=30,min_value=1)
+    r=st.number_input("Rate (%)",value=5.0)/100
+    sig=st.number_input("Volatility (%)",value=20.0)/100
+    q=st.number_input("Dividend (%)",value=0.0)/100
     opt=st.radio("",["call","put"],horizontal=True,label_visibility="collapsed")
     if mode=="Backtest":
         strat=st.selectbox("",["call","put","straddle"],label_visibility="collapsed")
-        nsim=st.selectbox("n",[500,1000,2000],index=1)
+        nsim=st.selectbox("Simulations",[500,1000,2000],index=1)
 
 T=T_d/365
 
@@ -112,7 +112,8 @@ if mode=="Pricing":
     d2=(np.log(S/K)+(r-q-0.5*sig**2)*T)/(sig*np.sqrt(T))
     prob_itm=norm.cdf(d2) if opt=="call" else norm.cdf(-d2)
     
-    st.markdown(f"**{opt.upper()}** — S={S:.0f}, K={K:.0f}, T={T_d}d, σ={sig*100:.0f}%")
+    st.markdown(f"**{opt.upper()}**")
+    st.write("")
     
     c1,c2=st.columns(2)
     with c1:
@@ -128,6 +129,7 @@ if mode=="Pricing":
         st.write(f"Theta = {g['theta']:.4f}")
         st.write(f"Rho = {g['rho']:.4f}")
     
+    st.write("")
     st.write("")
     fig,ax=plt.subplots(figsize=(6,2.5))
     Sr=np.linspace(S*0.7,S*1.3,150)
@@ -159,7 +161,8 @@ if mode=="Pricing":
 else:
     pnls,Sf=backtest(strat,S,K,T,r,sig,q,T_d,nsim)
     
-    st.markdown(f"**{strat.upper()}** — n={nsim}, T={T_d}d")
+    st.markdown(f"**{strat.upper()}**")
+    st.write("")
     
     c1,c2=st.columns(2)
     with c1:
@@ -175,6 +178,7 @@ else:
         st.write(f"P75 = {pcts[3]:.2f}")
         st.write(f"P95 = {pcts[4]:.2f}")
     
+    st.write("")
     st.write("")
     fig,ax=plt.subplots(figsize=(6,2.2))
     ax.hist(pnls[pnls>=0],bins=25,color="#2e7d32",alpha=0.5,edgecolor="white",lw=0.3)
