@@ -4,7 +4,6 @@ streamlit run pricer.py
 """
 
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 import streamlit as st
@@ -13,14 +12,12 @@ st.set_page_config(page_title="Pricer", layout="wide")
 
 st.markdown("""
 <style>
-.block-container{padding:0.5rem 1rem;}
-h1,h2,h3{margin:0;padding:0;}
-div[data-testid="stMetric"]{background:none;padding:0;}
-div[data-testid="stVerticalBlock"]{gap:0.3rem;}
+.block-container{padding:1rem 1rem;}
+div[data-testid="stVerticalBlock"]{gap:0.2rem;}
 </style>
 """, unsafe_allow_html=True)
 
-plt.rcParams.update({"figure.facecolor":"white","axes.facecolor":"white","axes.edgecolor":"#666","font.size":7,"axes.labelsize":7,"xtick.labelsize":6,"ytick.labelsize":6})
+plt.rcParams.update({"figure.facecolor":"white","axes.facecolor":"white","axes.edgecolor":"#666","font.size":7})
 
 def bs(S,K,T,r,sig,q=0,opt="call"):
     if T<=0:return max(S-K,0) if opt=="call" else max(K-S,0)
@@ -30,20 +27,21 @@ def bs(S,K,T,r,sig,q=0,opt="call"):
     return K*np.exp(-r*T)*norm.cdf(-d2)-S*np.exp(-q*T)*norm.cdf(-d1)
 
 def greeks(S,K,T,r,sig,q=0,opt="call"):
-    if T<=0 or sig<=0:return {"d":0,"g":0,"v":0,"t":0,"r":0}
+    if T<=0 or sig<=0:return {"delta":0,"gamma":0,"vega":0,"theta":0,"rho":0}
     d1=(np.log(S/K)+(r-q+0.5*sig**2)*T)/(sig*np.sqrt(T))
     d2=d1-sig*np.sqrt(T)
     nd1=norm.pdf(d1)
     if opt=="call":
-        d=np.exp(-q*T)*norm.cdf(d1)
-        t=(-(S*np.exp(-q*T)*nd1*sig)/(2*np.sqrt(T))-r*K*np.exp(-r*T)*norm.cdf(d2))/365
+        delta=np.exp(-q*T)*norm.cdf(d1)
+        theta=(-(S*np.exp(-q*T)*nd1*sig)/(2*np.sqrt(T))-r*K*np.exp(-r*T)*norm.cdf(d2))/365
+        rho=K*T*np.exp(-r*T)*norm.cdf(d2)/100
     else:
-        d=-np.exp(-q*T)*norm.cdf(-d1)
-        t=(-(S*np.exp(-q*T)*nd1*sig)/(2*np.sqrt(T))+r*K*np.exp(-r*T)*norm.cdf(-d2))/365
-    g=np.exp(-q*T)*nd1/(S*sig*np.sqrt(T))
-    v=S*np.exp(-q*T)*nd1*np.sqrt(T)/100
-    rh=K*T*np.exp(-r*T)*norm.cdf(d2)/100 if opt=="call" else -K*T*np.exp(-r*T)*norm.cdf(-d2)/100
-    return {"d":d,"g":g,"v":v,"t":t,"r":rh}
+        delta=-np.exp(-q*T)*norm.cdf(-d1)
+        theta=(-(S*np.exp(-q*T)*nd1*sig)/(2*np.sqrt(T))+r*K*np.exp(-r*T)*norm.cdf(-d2))/365
+        rho=-K*T*np.exp(-r*T)*norm.cdf(-d2)/100
+    gamma=np.exp(-q*T)*nd1/(S*sig*np.sqrt(T))
+    vega=S*np.exp(-q*T)*nd1*np.sqrt(T)/100
+    return {"delta":delta,"gamma":gamma,"vega":vega,"theta":theta,"rho":rho}
 
 def mc(S,K,T,r,sig,q,opt,n):
     np.random.seed(42)
@@ -99,21 +97,27 @@ if mode=="Pricing":
     
     be=K+p if opt=="call" else K-p
     intr=max(S-K,0) if opt=="call" else max(K-S,0)
-    prob_itm=norm.cdf((np.log(S/K)+(r-q-0.5*sig**2)*T)/(sig*np.sqrt(T))) if opt=="call" else norm.cdf(-(np.log(S/K)+(r-q-0.5*sig**2)*T)/(sig*np.sqrt(T)))
+    d2=(np.log(S/K)+(r-q-0.5*sig**2)*T)/(sig*np.sqrt(T))
+    prob_itm=norm.cdf(d2) if opt=="call" else norm.cdf(-d2)
     
-    st.write(f"**{opt.upper()}** | S={S} K={K} T={T_d}d σ={sig*100:.0f}%")
-    c1,c2,c3,c4=st.columns(4)
-    c1.write(f"Price: **${p:.4f}**")
-    c2.write(f"BE: ${be:.2f}")
-    c3.write(f"P(ITM): {prob_itm*100:.1f}%")
-    c4.write(f"TV: ${p-intr:.4f}")
+    col1,col2=st.columns([1,2])
     
-    st.write(f"Δ={g['d']:+.4f} | Γ={g['g']:.5f} | ν={g['v']:.4f} | Θ={g['t']:+.4f} | ρ={g['r']:+.4f}")
-    if se:st.write(f"SE: ±{se:.4f}")
-    
-    col1,col2=st.columns([2,1])
     with col1:
-        fig,ax=plt.subplots(figsize=(4,1.8))
+        st.write(f"**{opt.upper()}**")
+        st.write(f"Price = {p:.4f}")
+        st.write(f"Break-even = {be:.2f}")
+        st.write(f"P(ITM) = {prob_itm*100:.1f}%")
+        st.write(f"Time value = {p-intr:.4f}")
+        if se:st.write(f"SE = ±{se:.4f}")
+        st.write("")
+        st.write(f"Delta = {g['delta']:.4f}")
+        st.write(f"Gamma = {g['gamma']:.5f}")
+        st.write(f"Vega = {g['vega']:.4f}")
+        st.write(f"Theta = {g['theta']:.4f}")
+        st.write(f"Rho = {g['rho']:.4f}")
+    
+    with col2:
+        fig,ax=plt.subplots(figsize=(5,2.2))
         Sr=np.linspace(S*0.7,S*1.3,150)
         pnl=np.maximum(Sr-K,0)-p if opt=="call" else np.maximum(K-Sr,0)-p
         ax.fill_between(Sr,pnl,0,where=pnl>=0,alpha=0.3,color="green")
@@ -128,9 +132,9 @@ if mode=="Pricing":
         plt.tight_layout()
         st.pyplot(fig)
         plt.close()
-    with col2:
+        
         if paths is not None:
-            fig,ax=plt.subplots(figsize=(2.5,1.8))
+            fig,ax=plt.subplots(figsize=(5,1.8))
             ax.hist(paths,bins=25,color="steelblue",alpha=0.7,edgecolor="white",lw=0.2)
             ax.axvline(K,color="red",lw=0.5,ls="--")
             ax.set_xlabel("S(T)")
@@ -141,16 +145,24 @@ if mode=="Pricing":
 else:
     pnls,Sf=backtest(strat,S,K,T,r,sig,q,T_d,nsim)
     
-    st.write(f"**{strat.upper()}** | n={nsim} | T={T_d}d")
-    c1,c2,c3,c4=st.columns(4)
-    c1.write(f"Avg: **${pnls.mean():.2f}**")
-    c2.write(f"Win: {(pnls>0).mean()*100:.0f}%")
-    c3.write(f"Max: ${pnls.max():.2f}")
-    c4.write(f"Min: ${pnls.min():.2f}")
+    col1,col2=st.columns([1,2])
     
-    col1,col2=st.columns(2)
     with col1:
-        fig,ax=plt.subplots(figsize=(3.5,1.8))
+        st.write(f"**{strat.upper()}**")
+        st.write(f"Avg P&L = {pnls.mean():.2f}")
+        st.write(f"Win rate = {(pnls>0).mean()*100:.0f}%")
+        st.write(f"Max = {pnls.max():.2f}")
+        st.write(f"Min = {pnls.min():.2f}")
+        st.write("")
+        pcts=np.percentile(pnls,[5,25,50,75,95])
+        st.write(f"P5 = {pcts[0]:.2f}")
+        st.write(f"P25 = {pcts[1]:.2f}")
+        st.write(f"P50 = {pcts[2]:.2f}")
+        st.write(f"P75 = {pcts[3]:.2f}")
+        st.write(f"P95 = {pcts[4]:.2f}")
+    
+    with col2:
+        fig,ax=plt.subplots(figsize=(5,2))
         ax.hist(pnls[pnls>=0],bins=20,color="green",alpha=0.6,edgecolor="white",lw=0.2)
         ax.hist(pnls[pnls<0],bins=20,color="red",alpha=0.6,edgecolor="white",lw=0.2)
         ax.axvline(0,color="black",lw=0.4)
@@ -158,8 +170,8 @@ else:
         plt.tight_layout()
         st.pyplot(fig)
         plt.close()
-    with col2:
-        fig,ax=plt.subplots(figsize=(3.5,1.8))
+        
+        fig,ax=plt.subplots(figsize=(5,1.8))
         ax.scatter(Sf[pnls>=0],pnls[pnls>=0],s=3,alpha=0.4,color="green")
         ax.scatter(Sf[pnls<0],pnls[pnls<0],s=3,alpha=0.4,color="red")
         ax.axhline(0,color="black",lw=0.4)
@@ -169,6 +181,3 @@ else:
         plt.tight_layout()
         st.pyplot(fig)
         plt.close()
-    
-    pcts=np.percentile(pnls,[5,25,50,75,95])
-    st.write(f"P5=${pcts[0]:.2f} | P25=${pcts[1]:.2f} | P50=${pcts[2]:.2f} | P75=${pcts[3]:.2f} | P95=${pcts[4]:.2f}")
